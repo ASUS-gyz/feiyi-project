@@ -1,7 +1,16 @@
 <?php
 
+use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\GYZController;
 use Illuminate\Support\Facades\Route;
+
+// 认证模块
+Route::prefix('auth')->group(function () {
+    Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/me', [AuthController::class, 'me'])->middleware('jwt.auth');
+});
 
 //GYZ 模块
 // AI 智能问答
