@@ -18,12 +18,18 @@ class AuthService
      */
     public function register(array $data): User
     {
-        $user = User::create([
+        $userData = [
             'name' => $data['username'],
-            'email' => $data['email'] ?? null,
             'password' => Hash::make($data['password']),
             'nickname' => $data['nickname'] ?? null,
-        ]);
+        ];
+
+        // email 字段在数据库中是 NOT NULL，仅在传入时才设置
+        if (!empty($data['email'])) {
+            $userData['email'] = $data['email'];
+        }
+
+        $user = User::create($userData);
 
         return $user;
     }
