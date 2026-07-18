@@ -8,6 +8,8 @@ use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Requests\User\UpdatePasswordRequest;
 use App\Http\Requests\User\UpdateProfileRequest;
 use App\Models\Base;
+use App\Models\Event;
+use App\Models\EventSchedule;
 use App\Services\AuthService;
 use App\Support\Result;
 use Illuminate\Http\Request;
@@ -386,5 +388,147 @@ class CGJController extends Controller
         return Result::success('获取成功', $bases->map(function ($base) {
             return $this->formatBase($base, (float) $base->distance);
         })->values()->toArray());
+    }
+
+    // ==================== 展览活动模块 ====================
+
+    /**
+     * 获取展览列表
+     *
+     * GET /api/events
+     */
+    public function eventList(Request $request)
+    {
+        $query = Event::active();
+
+        // 按状态筛选
+        if ($request->filled('status')) {
+            $query->where('status', $request->input('status'));
+        }
+
+        // 按月份筛选
+        if ($request->filled('month')) {
+            $month = $request->input('month');
+            $query->where(function ($q) use ($month) {
+                $q->where('start_date', 'like', $month . '%')
+                  ->orWhere('end_date', 'like', $month . '%');
+            });
+        }
+
+        $page = (int) $request->input('page', 1);
+        $pageSize = (int) $request->input('pageSize', 20);
+
+        $paginator = $query->orderBy('start_date')->paginate($pageSize, ['*'], 'page', $page);
+
+        $list = collect($paginator->items())->map(function ($event) {
+            /** @var Event $event */
+            return [
+                'id' => $event->id,
+                'title' => $event->title,
+                'location' => $event->location,
+                'description' => $event->description,
+                'startDate' => $event->start_date->toDateString(),
+                'endDate' => $event->end_date->toDateString(),
+                'status' => $event->status,
+            ];
+        });
+
+        return Result::success('获取成功', [
+            'list' => $list->values()->toArray(),
+            'total' => $paginator->total(),
+            'page' => $paginator->currentPage(),
+            'pageSize' => $paginator->perPage(),
+        ]);
+    }
+
+    /**
+     * 获取展览详情
+     *
+     * GET /api/events/{id}
+     */
+    public function eventDetail(int $id)
+    {
+        /** @var Event|null $event */
+        $event = Event::active()->with(['schedules' => function ($q) {
+            $q->active()->orderBy('date');
+        }])->find($id);
+
+        if (!$event) {
+            return Result::error(ResponseCode::DATA_NOT_FOUND);
+        }
+
+        return Result::success('获取成功', [
+            'id' => $event->id,
+            'title' => $event->title,
+            'location' => $event->location,
+            'description' => $event->description,
+            'startDate' => $event->start_date->toDateString(),
+            'endDate' => $event->end_date->toDateString(),
+            'status' => $event->status,
+            'schedule' => $event->schedules->map(function ($schedule) {
+                return [
+                    'date' => $schedule->date->toDateString(),
+                    'event' => $schedule->event,
+                ];
+            })->values()->toArray(),
+        ]);
+    }
+
+    /**
+     * 生成日历文件
+     *
+     * GET /api/events/{id}/calendar
+     */
+    public function eventCalendar(int $id)
+    {
+        /** @var Event|null $event */
+        $event = Event::active()->find($id);
+
+        if (!$event) {
+            return Result::error(ResponseCode::DATA_NOT_FOUND);
+        }
+
+        // 生成 .ics 内容
+        $uid = 'event-' . $event->id . '@feiyi';
+        $dtStart = $event->start_date->format('Ymd');
+        // iCalendar 的 DTEND 为独占结束日期，所以 +1 天
+        $dtEnd = $event->end_date->copy()->addDay()->format('Ymd');
+        $dtStamp = now()->format('Ymd\THis\Z');
+        $summary = $this->escapeIcsText($event->title);
+        $description = $this->escapeIcsText($event->description ?? '');
+        $location = $this->escapeIcsText($event->location);
+
+        $ics = "BEGIN:VCALENDAR\r\n"
+              ."VERSION:2.0\r\n"
+              ."PRODID:-//Feiyi//Events//CN\r\n"
+              ."BEGIN:VEVENT\r\n"
+              ."UID:{$uid}\r\n"
+              ."DTSTAMP:{$dtStamp}\r\n"
+              ."DTSTART;VALUE=DATE:{$dtStart}\r\n"
+              ."DTEND;VALUE=DATE:{$dtEnd}\r\n"
+              ."SUMMARY:{$summary}\r\n"
+              ."DESCRIPTION:{$description}\r\n"
+              ."LOCATION:{$location}\r\n"
+              ."END:VEVENT\r\n"
+              ."END:VCALENDAR\r\n";
+
+        $filename = $event->title . '.ics';
+
+        return response($ics, 200, [
+            'Content-Type' => 'text/calendar; charset=utf-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
+    }
+
+    /**
+     * 转义 .ics 文本中的特殊字符
+     */
+    private function escapeIcsText(string $text): string
+    {
+        return str_replace(
+            ['\\', ';', ',', "\n"],
+            ['\\\\', '\\;', '\\,', '\\n'],
+            $text
+        );
     }
 }

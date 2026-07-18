@@ -31,6 +31,13 @@ Route::prefix('bases')->group(function () {
     Route::get('{id}', [CGJController::class, 'baseDetail'])->whereNumber('id');
 });
 
+// 展览活动模块
+Route::prefix('events')->group(function () {
+    Route::get('/', [CGJController::class, 'eventList']);
+    Route::get('{id}/calendar', [CGJController::class, 'eventCalendar'])->whereNumber('id');
+    Route::get('{id}', [CGJController::class, 'eventDetail'])->whereNumber('id');
+});
+
 //GYZ 模块
 // AI 智能问答
 Route::prefix('chat')->group(function () {
