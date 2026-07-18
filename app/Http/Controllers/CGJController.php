@@ -8,11 +8,14 @@ use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Requests\User\UpdatePasswordRequest;
 use App\Http\Requests\User\UpdateProfileRequest;
 use App\Models\Base;
+use App\Models\Donation;
+use App\Models\DonationProject;
 use App\Models\Event;
 use App\Models\EventSchedule;
 use App\Services\AuthService;
 use App\Support\Result;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -530,5 +533,279 @@ class CGJController extends Controller
             ['\\\\', '\\;', '\\,', '\\n'],
             $text
         );
+    }
+
+    // ==================== 捐赠支持模块 ====================
+
+    /**
+     * 获取捐赠项目列表
+     *
+     * GET /api/donations/projects
+     */
+    public function donationProjects()
+    {
+        $projects = DonationProject::active()->orderBy('id')->get();
+
+        return Result::success('获取成功', $projects->map(function ($project) {
+            return [
+                'id' => $project->id,
+                'title' => $project->title,
+                'description' => $project->description,
+                'targetAmount' => (float) $project->target_amount,
+                'currentAmount' => (float) $project->current_amount,
+                'supporterCount' => (int) $project->supporter_count,
+                'image' => $project->image,
+                'status' => $project->status,
+            ];
+        })->values()->toArray());
+    }
+
+    /**
+     * 发起捐赠
+     *
+     * POST /api/donations
+     */
+    public function createDonation(Request $request)
+    {
+        /** @var \App\Models\User|null $user */
+        $user = $request->user();
+
+        if (!$user) {
+            return Result::error(ResponseCode::UNAUTHORIZED);
+        }
+
+        $projectId = $request->input('projectId');
+        $amount = $request->input('amount');
+        $isAnonymous = (bool) $request->input('isAnonymous', false);
+        $message = $request->input('message');
+
+        // 验证参数
+        if (!$projectId) {
+            return Result::error(ResponseCode::PARAM_MISSING, '请选择捐赠项目');
+        }
+
+        if (!$amount || !is_numeric($amount) || $amount < 10) {
+            return Result::error(ResponseCode::PARAM_INVALID, '捐赠金额不能低于 10 元');
+        }
+
+        // 检查项目
+        /** @var DonationProject|null $project */
+        $project = DonationProject::available()->find($projectId);
+
+        if (!$project) {
+            return Result::error(ResponseCode::DATA_NOT_FOUND, '捐赠项目不存在或已关闭');
+        }
+
+        // 金额上限检查（不超过目标金额的 10 倍）
+        if ($amount > $project->target_amount * 10) {
+            return Result::error(ResponseCode::AMOUNT_LIMIT, '单次捐赠金额不能超过项目目标金额的 10 倍');
+        }
+
+        // 生成捐赠编号
+        $donationNo = 'DON' . date('YmdHis') . strtoupper(Str::random(6));
+
+        // 使用事务写入
+        try {
+            DB::transaction(function () use ($user, $project, $donationNo, $amount, $isAnonymous, $message, &$donation) {
+                // 创建捐赠记录
+                $donation = Donation::create([
+                    'donation_no' => $donationNo,
+                    'user_id' => $user->id,
+                    'project_id' => $project->id,
+                    'project_title' => $project->title,
+                    'amount' => $amount,
+                    'is_anonymous' => $isAnonymous,
+                    'message' => $message,
+                    'status' => 'DONATION_COMPLETED',
+                ]);
+
+                // 更新项目计数缓存
+                $project->increment('current_amount', $amount);
+                $project->increment('supporter_count');
+            });
+        } catch (\Exception $e) {
+            return Result::error(ResponseCode::SYSTEM_ERROR, '捐赠处理失败，请稍后重试');
+        }
+
+        return Result::success('捐赠成功', [
+            'donationNo' => $donation->donation_no,
+            'amount' => (float) $donation->amount,
+            'status' => $donation->status,
+            'certificateUrl' => $donation->certificate_url,
+            'createdAt' => $donation->created_at->toIso8601String(),
+        ]);
+    }
+
+    /**
+     * 获取我的捐赠记录
+     *
+     * GET /api/donations/records
+     */
+    public function donationRecords(Request $request)
+    {
+        /** @var \App\Models\User|null $user */
+        $user = $request->user();
+
+        if (!$user) {
+            return Result::error(ResponseCode::UNAUTHORIZED);
+        }
+
+        $page = (int) $request->input('page', 1);
+        $pageSize = (int) $request->input('pageSize', 20);
+
+        $paginator = Donation::where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->paginate($pageSize, ['*'], 'page', $page);
+
+        $list = collect($paginator->items())->map(function ($donation) {
+            /** @var Donation $donation */
+            return [
+                'donationNo' => $donation->donation_no,
+                'projectId' => $donation->project_id,
+                'projectTitle' => $donation->project_title,
+                'amount' => (float) $donation->amount,
+                'isAnonymous' => (bool) $donation->is_anonymous,
+                'message' => $donation->message,
+                'status' => $donation->status,
+                'certificateUrl' => $donation->certificate_url,
+                'createdAt' => $donation->created_at->toIso8601String(),
+            ];
+        });
+
+        return Result::success('获取成功', [
+            'list' => $list->values()->toArray(),
+            'total' => $paginator->total(),
+            'page' => $paginator->currentPage(),
+            'pageSize' => $paginator->perPage(),
+        ]);
+    }
+
+    /**
+     * 下载电子捐赠证书
+     *
+     * GET /api/donations/{id}/certificate
+     */
+    public function donationCertificate(int $id)
+    {
+        /** @var \App\Models\User|null $user */
+        $user = request()->user();
+
+        if (!$user) {
+            return Result::error(ResponseCode::UNAUTHORIZED);
+        }
+
+        /** @var Donation|null $donation */
+        $donation = Donation::find($id);
+
+        if (!$donation) {
+            return Result::error(ResponseCode::DATA_NOT_FOUND);
+        }
+
+        // 检查权限：只能下载自己的证书
+        if ($donation->user_id !== $user->id) {
+            return Result::error(ResponseCode::FORBIDDEN);
+        }
+
+        // 生成 PDF 证书
+        $pdfContent = $this->generateDonationCertificatePdf($donation);
+
+        $filename = '捐赠证书_' . $donation->donation_no . '.pdf';
+
+        return response($pdfContent, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
+    }
+
+    /**
+     * 生成捐赠证书 PDF
+     */
+    private function generateDonationCertificatePdf(Donation $donation): string
+    {
+        $donationNo = $donation->donation_no;
+        $nickname = $donation->is_anonymous ? '匿名爱心人士' : ($donation->user->nickname ?: $donation->user->username);
+        $amount = number_format($donation->amount, 2);
+        $projectTitle = $donation->project_title;
+        $date = $donation->created_at->format('Y年m月d日');
+
+        // 使用 PDF 内容块构建
+        $objects = [];
+        $objectCount = 0;
+
+        // 1. Catalog
+        $objects[++$objectCount] = "<< /Type /Catalog /Pages 2 0 R >>";
+        // 2. Pages
+        $objects[++$objectCount] = "<< /Type /Pages /Kids [3 0 R] /Count 1 >>";
+        // 3. Page
+        $objects[++$objectCount] = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Contents 4 0 R /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> >>";
+
+        // 4. Content stream
+        $content = $this->buildCertificateContent($donationNo, $nickname, $amount, $projectTitle, $date);
+        $contentLen = strlen($content);
+        $objects[++$objectCount] = "<< /Length {$contentLen} >>\nstream\n{$content}\nendstream";
+
+        // 5. Font - Helvetica-Bold for title
+        $objects[++$objectCount] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>";
+        // 6. Font - Helvetica for body
+        $objects[++$objectCount] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
+
+        $totalObjects = $objectCount;
+        $offsets = [];
+        $pdf = "%PDF-1.4\n";
+
+        // Write objects
+        for ($i = 1; $i <= $totalObjects; $i++) {
+            $offsets[$i] = strlen($pdf);
+            $pdf .= "{$i} 0 obj\n{$objects[$i]}\nendobj\n";
+        }
+
+        // Cross-reference table
+        $xrefOffset = strlen($pdf);
+        $pdf .= "xref\n0 " . ($totalObjects + 1) . "\n";
+        $pdf .= "0000000000 65535 f \n";
+        for ($i = 1; $i <= $totalObjects; $i++) {
+            $pdf .= sprintf("%010d 00000 n \n", $offsets[$i]);
+        }
+
+        // Trailer
+        $pdf .= "trailer\n<< /Size " . ($totalObjects + 1) . " /Root 1 0 R >>\n";
+        $pdf .= "startxref\n{$xrefOffset}\n%%EOF\n";
+
+        return $pdf;
+    }
+
+    /**
+     * 构建证书 PDF 页面内容
+     */
+    private function buildCertificateContent(
+        string $donationNo,
+        string $nickname,
+        string $amount,
+        string $projectTitle,
+        string $date
+    ): string {
+        $lines = [];
+
+        // 标题
+        $lines[] = "BT /F1 36 Tf 50 750 Td (\xE6\x8D\x90\xE8\xB5\xA0\xE8\xAF\x81\xE4\xB9\xA6) Tj ET";
+        // 装饰线
+        $lines[] = "BT 0.8 w 50 720 495 0 re S ET";
+        // 证书编号
+        $lines[] = "BT /F2 10 Tf 50 690 Td (\xE8\xAF\x81\xE4\xB9\xA6\xE7\xBC\x96\xE5\x8F\xB7\xEF\xBC\x9A{$donationNo}) Tj ET";
+        // 空行
+        // 正文
+        $lines[] = "BT /F2 16 Tf 50 640 Td (\xE6\x81\xAD\xE5\x96\x9C\xEF\xBC\x9A{$nickname}) Tj ET";
+        $lines[] = "BT /F2 14 Tf 50 600 Td (\xE6\x82\xA8\xE5\x90\x91\xE3\x80\x8C{$projectTitle}\xE3\x80\x8D\xE9\xA1\xB9\xE7\x9B\xAE\xE6\x8D\x90\xE8\xB5\xA0\xE4\xBA\x86) Tj ET";
+        $lines[] = "BT /F1 24 Tf 50 560 Td ({$amount}\xE5\x85\x83) Tj ET";
+        $lines[] = "BT /F2 14 Tf 50 520 Td (\xE6\x88\x90\xE4\xB8\xBA\xE4\xBA\x86\xE9\x9D\x9E\xE9\x81\x97\xE4\xBF\x9D\xE6\x8A\xA4\xE4\xB8\x8E\xE4\xBC\xA0\xE6\x89\xBF\xE7\x9A\x84\xE6\x94\xAF\xE6\x8C\x81\xE8\x80\x85\xE3\x80\x82) Tj ET";
+        $lines[] = "BT /F2 14 Tf 50 480 Td (\xE6\x88\x91\xE4\xBB\xAC\xE5\xB0\x86\xE4\xB8\x8E\xE6\x82\xA8\xE4\xB8\x80\xE8\xB5\xB7\xEF\xBC\x8C\xE5\x85\xB1\xE5\x90\x8C\xE5\xAE\x88\xE6\x8A\xA4\xE8\xBF\x99\xE4\xBB\xBD\xE5\x8D\x83\xE5\xB9\xB4\xE5\xB7\xA5\xE8\x89\xBA\xE3\x80\x82) Tj ET";
+        // 日期
+        $lines[] = "BT /F2 12 Tf 50 420 Td (\xE9\xA2\x81\xE5\x8F\x91\xE6\x97\xA5\xE6\x9C\x9F\xEF\xBC\x9A{$date}) Tj ET";
+        // 机构名
+        $lines[] = "BT /F2 12 Tf 350 380 Td (\xE7\x84\x99\xE7\xAE\x94\xE5\x87\x9D\xE8\x89\xBA\xC2\xB7\xE9\x9D\x9E\xE9\x81\x97\xE4\xBF\x9D\xE6\x8A\xA4\xE6\x9C\xBA\xE6\x9E\x84) Tj ET";
+        // 底部
+        $lines[] = "BT /F2 8 Tf 50 50 Td (\xE6\x9C\xAC\xE8\xAF\x81\xE4\xB9\xA6\xE4\xBB\x85\xE4\xB8\xBA\xE6\x84\x9F\xE8\xB0\xA2\xE6\x82\xA8\xE7\x9A\x84\xE6\x8D\x90\xE8\xB5\xA0\xEF\xBC\x8C\xE4\xB8\x8D\xE4\xBD\x9C\xE4\xB8\xBA\xE4\xBB\xBB\xE4\xBD\x95\xE6\x94\xB6\xE6\x8D\xAE\xE6\x88\x96\xE7\xA8\x8E\xE5\x8A\xA1\xE5\x87\xAD\xE8\xAF\x81\xE3\x80\x82) Tj ET";
+
+        return implode("\n", $lines);
     }
 }
