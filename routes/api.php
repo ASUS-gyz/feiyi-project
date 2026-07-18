@@ -24,6 +24,13 @@ Route::prefix('upload')->group(function () {
     Route::post('/post-image', [CGJController::class, 'uploadPostImage']);
 });
 
+// 传承基地模块
+Route::prefix('bases')->group(function () {
+    Route::get('/nearby', [CGJController::class, 'baseNearby']);
+    Route::get('/', [CGJController::class, 'baseList']);
+    Route::get('{id}', [CGJController::class, 'baseDetail'])->whereNumber('id');
+});
+
 //GYZ 模块
 // AI 智能问答
 Route::prefix('chat')->group(function () {

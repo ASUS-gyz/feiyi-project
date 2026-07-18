@@ -7,6 +7,7 @@ use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Requests\User\UpdatePasswordRequest;
 use App\Http\Requests\User\UpdateProfileRequest;
+use App\Models\Base;
 use App\Services\AuthService;
 use App\Support\Result;
 use Illuminate\Http\Request;
@@ -257,5 +258,133 @@ class CGJController extends Controller
             'size' => $file->getSize(),
             'mimeType' => $file->getMimeType(),
         ]);
+    }
+
+    // ==================== 传承基地模块 ====================
+
+    /**
+     * 格式化基地数据（列表/详情通用）
+     */
+    private function formatBase(Base $base, ?float $distance = null): array
+    {
+        $data = [
+            'id' => $base->id,
+            'name' => $base->name,
+            'location' => $base->location,
+            'latitude' => (float) $base->latitude,
+            'longitude' => (float) $base->longitude,
+            'status' => $base->status,
+            'bookingType' => $base->booking_type,
+            'bookingValue' => $base->booking_value,
+            'courses' => $base->courses,
+            'images' => $base->images ?? [],
+        ];
+
+        if ($distance !== null) {
+            $data['distance'] = round($distance, 1);
+        }
+
+        return $data;
+    }
+
+    /**
+     * 格式化基地详情
+     */
+    private function formatBaseDetail(Base $base): array
+    {
+        return [
+            'id' => $base->id,
+            'name' => $base->name,
+            'location' => $base->location,
+            'latitude' => (float) $base->latitude,
+            'longitude' => (float) $base->longitude,
+            'status' => $base->status,
+            'bookingType' => $base->booking_type,
+            'bookingValue' => $base->booking_value,
+            'courses' => $base->courses,
+            'images' => $base->images ?? [],
+            'description' => $base->description,
+            'contact' => $base->contact,
+            'phone' => $base->phone,
+            'openingHours' => $base->opening_hours,
+            'createdAt' => $base->created_at?->toDateString(),
+            'updatedAt' => $base->updated_at?->toDateString(),
+        ];
+    }
+
+    /**
+     * 获取传承基地列表
+     *
+     * GET /api/bases
+     */
+    public function baseList(Request $request)
+    {
+        $query = Base::active();
+
+        // 按状态筛选
+        if ($request->filled('status')) {
+            $query->where('status', $request->input('status'));
+        }
+
+        // 按地区筛选（location 字段模糊匹配）
+        if ($request->filled('region')) {
+            $query->where('location', 'like', '%' . $request->input('region') . '%');
+        }
+
+        $bases = $query->get();
+
+        return Result::success('获取成功', $bases->map(function ($base) {
+            return $this->formatBase($base);
+        })->values()->toArray());
+    }
+
+    /**
+     * 获取基地详情
+     *
+     * GET /api/bases/{id}
+     */
+    public function baseDetail(int $id)
+    {
+        /** @var Base|null $base */
+        $base = Base::active()->find($id);
+
+        if (!$base) {
+            return Result::error(ResponseCode::DATA_NOT_FOUND);
+        }
+
+        return Result::success('获取成功', $this->formatBaseDetail($base));
+    }
+
+    /**
+     * 获取附近基地
+     *
+     * GET /api/bases/nearby
+     */
+    public function baseNearby(Request $request)
+    {
+        $latitude = $request->input('latitude');
+        $longitude = $request->input('longitude');
+        $radius = (float) ($request->input('radius', 50));
+
+        if (!$latitude || !$longitude) {
+            return Result::error(ResponseCode::PARAM_MISSING, '请提供经纬度参数');
+        }
+
+        $latitude = (float) $latitude;
+        $longitude = (float) $longitude;
+
+        // 使用 Haversine 公式计算距离并筛选
+        $haversine = "(6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude))))";
+
+        $bases = Base::active()
+            ->select('*')
+            ->selectRaw("{$haversine} AS distance", [$latitude, $longitude, $latitude])
+            ->having('distance', '<=', $radius)
+            ->orderBy('distance')
+            ->get();
+
+        return Result::success('获取成功', $bases->map(function ($base) {
+            return $this->formatBase($base, (float) $base->distance);
+        })->values()->toArray());
     }
 }
