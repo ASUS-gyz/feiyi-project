@@ -1,15 +1,21 @@
 <?php
 
-use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\CGJController;
 use App\Http\Controllers\GYZController;
 use Illuminate\Support\Facades\Route;
 
 // 认证模块
 Route::prefix('auth')->group(function () {
-    Route::post('/register', [AuthController::class, 'register']);
-    Route::post('/login', [AuthController::class, 'login']);
-    Route::post('/logout', [AuthController::class, 'logout']);
-    Route::get('/me', [AuthController::class, 'me'])->middleware('jwt.auth');
+    Route::post('/register', [CGJController::class, 'register']);
+    Route::post('/login', [CGJController::class, 'login']);
+    Route::post('/logout', [CGJController::class, 'logout']);
+    Route::get('/me', [CGJController::class, 'me'])->middleware('jwt.auth');
+});
+
+// 用户资料模块
+Route::prefix('users')->middleware('jwt.auth')->group(function () {
+    Route::put('/me', [CGJController::class, 'updateProfile']);
+    Route::post('/me/password', [CGJController::class, 'updatePassword']);
 });
 
 //GYZ 模块
