@@ -9,7 +9,10 @@ use App\Http\Requests\User\UpdatePasswordRequest;
 use App\Http\Requests\User\UpdateProfileRequest;
 use App\Services\AuthService;
 use App\Support\Result;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class CGJController extends Controller
 {
@@ -83,6 +86,7 @@ class CGJController extends Controller
      */
     public function updateProfile(UpdateProfileRequest $request)
     {
+        /** @var \App\Models\User|null $user */
         $user = $request->user();
 
         if (!$user) {
@@ -115,6 +119,7 @@ class CGJController extends Controller
      */
     public function updatePassword(UpdatePasswordRequest $request)
     {
+        /** @var \App\Models\User|null $user */
         $user = $request->user();
 
         if (!$user) {
@@ -133,5 +138,124 @@ class CGJController extends Controller
         $user->save();
 
         return Result::success('密码修改成功');
+    }
+
+    // ==================== 文件上传模块 ====================
+
+    /**
+     * 允许的图片 MIME 类型
+     */
+    private const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp'];
+
+    /**
+     * 上传头像
+     *
+     * POST /api/upload/avatar
+     */
+    public function uploadAvatar(Request $request)
+    {
+        /** @var \App\Models\User|null $user */
+        $user = $request->user();
+
+        if (!$user) {
+            return Result::error(ResponseCode::UNAUTHORIZED);
+        }
+
+        if (!$request->hasFile('file')) {
+            return Result::error(ResponseCode::PARAM_MISSING, '请选择要上传的文件');
+        }
+
+        /** @var \Illuminate\Http\UploadedFile|null $file */
+        $file = $request->file('file');
+
+        // 验证文件类型
+        if (!in_array($file->getMimeType(), self::ALLOWED_MIMES)) {
+            return Result::error(ResponseCode::PARAM_INVALID, '仅支持 jpg/png/webp 格式的图片');
+        }
+
+        // 验证文件大小 (≤2MB)
+        $maxSize = 2 * 1024 * 1024; // 2MB
+        if ($file->getSize() > $maxSize) {
+            return Result::error(ResponseCode::FILE_TOO_LARGE, '头像大小不能超过 2MB');
+        }
+
+        // 生成唯一文件名
+        $extension = $file->getClientOriginalExtension();
+        $filename = time() . '_' . Str::random(10) . '.' . $extension;
+
+        // 存储到 storage/app/public/avatars/
+        $path = $file->storeAs('avatars', $filename, 'public');
+
+        if (!$path) {
+            return Result::error(ResponseCode::SYSTEM_ERROR, '文件上传失败');
+        }
+
+        // 生成访问 URL
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+        $disk = Storage::disk('public');
+        $url = $disk->url($path);
+
+        // 更新用户头像
+        $user->avatar = $url;
+        $user->save();
+
+        return Result::success('上传成功', [
+            'url' => $url,
+        ]);
+    }
+
+    /**
+     * 上传帖子/共创图片
+     *
+     * POST /api/upload/post-image
+     */
+    public function uploadPostImage(Request $request)
+    {
+        if (!$request->hasFile('file')) {
+            return Result::error(ResponseCode::PARAM_MISSING, '请选择要上传的文件');
+        }
+
+        // 验证 folder 参数
+        $folder = $request->input('folder');
+        if ($folder !== 'posts') {
+            return Result::error(ResponseCode::PARAM_INVALID, 'folder 参数必须为 posts');
+        }
+
+        /** @var \Illuminate\Http\UploadedFile|null $file */
+        $file = $request->file('file');
+
+        // 验证文件类型
+        if (!in_array($file->getMimeType(), self::ALLOWED_MIMES)) {
+            return Result::error(ResponseCode::PARAM_INVALID, '仅支持 jpg/png/webp 格式的图片');
+        }
+
+        // 验证文件大小 (≤5MB)
+        $maxSize = 5 * 1024 * 1024; // 5MB
+        if ($file->getSize() > $maxSize) {
+            return Result::error(ResponseCode::FILE_TOO_LARGE, '图片大小不能超过 5MB');
+        }
+
+        // 生成唯一文件名
+        $extension = $file->getClientOriginalExtension();
+        $filename = time() . '_' . Str::random(10) . '.' . $extension;
+
+        // 存储到 storage/app/public/posts/
+        $path = $file->storeAs('posts', $filename, 'public');
+
+        if (!$path) {
+            return Result::error(ResponseCode::SYSTEM_ERROR, '文件上传失败');
+        }
+
+        // 生成访问 URL
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+        $disk = Storage::disk('public');
+        $url = $disk->url($path);
+
+        return Result::success('上传成功', [
+            'url' => $url,
+            'filename' => $filename,
+            'size' => $file->getSize(),
+            'mimeType' => $file->getMimeType(),
+        ]);
     }
 }

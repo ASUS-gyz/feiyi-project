@@ -95,6 +95,11 @@ enum ResponseCode: int
     case BUSINESS_LIMIT = 40010;
 
     /**
+     * 文件过大
+     */
+    case FILE_TOO_LARGE = 10007;
+
+    /**
      * 第三方接口异常
      */
     case THIRD_PARTY_ERROR = 50001;
@@ -130,6 +135,7 @@ enum ResponseCode: int
             self::BUSINESS_INVALID_STATE => '当前状态不可操作',
             self::BUSINESS_DUPLICATE => '请勿重复提交',
             self::BUSINESS_LIMIT => '超出业务规则限制',
+            self::FILE_TOO_LARGE => '文件过大',
             self::THIRD_PARTY_ERROR => '第三方服务异常',
             self::DATABASE_ERROR => '数据库异常',
             self::SYSTEM_ERROR => '系统异常',
