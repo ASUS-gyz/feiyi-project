@@ -18,6 +18,12 @@ Route::prefix('users')->middleware('jwt.auth')->group(function () {
     Route::post('/me/password', [CGJController::class, 'updatePassword']);
 });
 
+// 文件上传模块
+Route::prefix('upload')->group(function () {
+    Route::post('/avatar', [CGJController::class, 'uploadAvatar'])->middleware('jwt.auth');
+    Route::post('/post-image', [CGJController::class, 'uploadPostImage']);
+});
+
 //GYZ 模块
 // AI 智能问答
 Route::prefix('chat')->group(function () {
