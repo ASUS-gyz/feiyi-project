@@ -90,6 +90,11 @@ enum ResponseCode: int
     case BUSINESS_DUPLICATE = 40009;
 
     /**
+     * 金额超限
+     */
+    case AMOUNT_LIMIT = 40005;
+
+    /**
      * 超出业务规则限制
      */
     case BUSINESS_LIMIT = 40010;
@@ -134,6 +139,7 @@ enum ResponseCode: int
             self::BUSINESS_ERROR => '业务处理失败',
             self::BUSINESS_INVALID_STATE => '当前状态不可操作',
             self::BUSINESS_DUPLICATE => '请勿重复提交',
+            self::AMOUNT_LIMIT => '金额超限',
             self::BUSINESS_LIMIT => '超出业务规则限制',
             self::FILE_TOO_LARGE => '文件过大',
             self::THIRD_PARTY_ERROR => '第三方服务异常',

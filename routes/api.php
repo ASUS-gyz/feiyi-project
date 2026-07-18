@@ -38,6 +38,14 @@ Route::prefix('events')->group(function () {
     Route::get('{id}', [CGJController::class, 'eventDetail'])->whereNumber('id');
 });
 
+// 捐赠支持模块
+Route::prefix('donations')->group(function () {
+    Route::get('/projects', [CGJController::class, 'donationProjects']);
+    Route::post('/', [CGJController::class, 'createDonation'])->middleware('jwt.auth');
+    Route::get('/records', [CGJController::class, 'donationRecords'])->middleware('jwt.auth');
+    Route::get('{id}/certificate', [CGJController::class, 'donationCertificate'])->middleware('jwt.auth')->whereNumber('id');
+});
+
 //GYZ 模块
 // AI 智能问答
 Route::prefix('chat')->group(function () {
