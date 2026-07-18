@@ -627,6 +627,7 @@ class CGJController extends Controller
             return Result::error(ResponseCode::SYSTEM_ERROR, '捐赠处理失败，请稍后重试');
         }
 
+        /** @var Donation $donation */
         return Result::success('捐赠成功', [
             'donationNo' => $donation->donation_no,
             'amount' => (float) $donation->amount,
