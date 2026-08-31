@@ -64,6 +64,26 @@ return [
             ]) : [],
         ],
 
+        'mysql_shared' => [
+            'driver' => 'mysql',
+            'url' => env('DB_SHARED_URL'),
+            'host' => env('DB_SHARED_HOST', '127.0.0.1'),
+            'port' => env('DB_SHARED_PORT', '3306'),
+            'database' => env('DB_SHARED_DATABASE', 'forge'),
+            'username' => env('DB_SHARED_USERNAME', 'forge'),
+            'password' => env('DB_SHARED_PASSWORD', ''),
+            'unix_socket' => env('DB_SHARED_SOCKET', ''),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                (PHP_VERSION_ID >= 80500 ? Mysql::ATTR_SSL_CA : PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
+            ]) : [],
+        ],
+
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),
