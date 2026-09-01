@@ -41,7 +41,7 @@ class GYZController extends Controller
     /** POST /api/shop/orders */
     public function shopOrderCreate(GYZRequest $request): JsonResponse
     {
-        $userId = auth()->id();
+        $userId = request()->user()->id;
         $data = $this->service->createOrder($userId, $request->validated());
         return Result::success('下单成功', $data);
     }
@@ -49,7 +49,7 @@ class GYZController extends Controller
     /** GET /api/shop/orders */
     public function shopOrders(GYZRequest $request): JsonResponse
     {
-        $userId = auth()->id();
+        $userId = request()->user()->id;
         $data = $this->service->getOrders($userId, $request->validated());
         return Result::success('获取成功', $data);
     }
@@ -61,7 +61,7 @@ class GYZController extends Controller
     /** GET /api/notifications */
     public function notificationList(GYZRequest $request): JsonResponse
     {
-        $userId = auth()->id();
+        $userId = request()->user()->id;
         $data = $this->service->getNotifications($userId, $request->validated());
         return Result::success('获取成功', $data);
     }
@@ -69,7 +69,7 @@ class GYZController extends Controller
     /** GET /api/notifications/unread-count */
     public function notificationUnreadCount(GYZRequest $request): JsonResponse
     {
-        $userId = auth()->id();
+        $userId = request()->user()->id;
         $type = $request->validated('type');
         $data = $this->service->getUnreadCount($userId, $type);
         return Result::success('获取成功', $data);
@@ -78,7 +78,7 @@ class GYZController extends Controller
     /** POST /api/notifications/{id}/read */
     public function notificationRead(int $id): JsonResponse
     {
-        $userId = auth()->id();
+        $userId = request()->user()->id;
         $this->service->markAsRead($userId, $id);
         return Result::success('标记成功');
     }
@@ -86,7 +86,7 @@ class GYZController extends Controller
     /** POST /api/notifications/read-all */
     public function notificationReadAll(): JsonResponse
     {
-        $userId = auth()->id();
+        $userId = request()->user()->id;
         $updatedCount = $this->service->markAllAsRead($userId);
         return Result::success('全部标记已读', ['updatedCount' => $updatedCount]);
     }
@@ -94,7 +94,7 @@ class GYZController extends Controller
     /** DELETE /api/notifications/{id} */
     public function notificationDelete(int $id): JsonResponse
     {
-        $userId = auth()->id();
+        $userId = request()->user()->id;
         $this->service->deleteNotification($userId, $id);
         return Result::success('删除成功');
     }
@@ -102,7 +102,7 @@ class GYZController extends Controller
     /** DELETE /api/notifications/read */
     public function notificationClearRead(): JsonResponse
     {
-        $userId = auth()->id();
+        $userId = request()->user()->id;
         $deletedCount = $this->service->clearReadNotifications($userId);
         return Result::success('清空成功', ['deletedCount' => $deletedCount]);
     }
@@ -150,7 +150,7 @@ class GYZController extends Controller
     /** POST /api/games/scores */
     public function gameScoreSubmit(GYZRequest $request): JsonResponse
     {
-        $userId = auth()->id();
+        $userId = request()->user()->id;
         $data = $this->service->submitScore($userId, $request->validated());
         return Result::success('提交成功', $data);
     }
@@ -158,7 +158,7 @@ class GYZController extends Controller
     /** GET /api/games/scores/my */
     public function gameScoresMy(GYZRequest $request): JsonResponse
     {
-        $userId = auth()->id();
+        $userId = request()->user()->id;
         $data = $this->service->getMyScores($userId, $request->validated());
         return Result::success('获取成功', $data);
     }
@@ -173,7 +173,7 @@ class GYZController extends Controller
     /** GET /api/games/{type}/levels/{id}/best */
     public function gameBestScore(string $type, int $id): JsonResponse
     {
-        $userId = auth()->id();
+        $userId = request()->user()->id;
         $data = $this->service->getBestScore($userId, $type, $id);
         return Result::success('获取成功', $data);
     }
@@ -198,7 +198,7 @@ class GYZController extends Controller
             'max_tokens'  => $request->input('maxTokens', 512),
             'temperature' => $request->input('temperature', 0.6),
         ];
-        $userId = auth()->id();
+        $userId = request()->user()->id;
         $result = $this->service->sendChatMessage($data, $userId);
         return response()->json($result);
     }
@@ -226,7 +226,7 @@ class GYZController extends Controller
     /** GET /api/chat/sessions */
     public function chatSessions(GYZRequest $request): JsonResponse
     {
-        $userId = auth()->id();
+        $userId = request()->user()->id;
         $data = $this->service->getChatSessions($userId, $request->validated());
         return Result::success('获取成功', $data);
     }
@@ -234,7 +234,7 @@ class GYZController extends Controller
     /** GET /api/chat/sessions/{sessionId}/messages */
     public function chatSessionMessages(string $sessionId): JsonResponse
     {
-        $userId = auth()->id();
+        $userId = request()->user()->id;
         $data = $this->service->getChatMessages($userId, $sessionId);
         return Result::success('获取成功', $data);
     }
@@ -242,7 +242,7 @@ class GYZController extends Controller
     /** DELETE /api/chat/sessions/{sessionId} */
     public function chatDeleteSession(string $sessionId): JsonResponse
     {
-        $userId = auth()->id();
+        $userId = request()->user()->id;
         $this->service->deleteChatSession($userId, $sessionId);
         return Result::success('删除成功');
     }
@@ -250,7 +250,7 @@ class GYZController extends Controller
     /** DELETE /api/chat/sessions */
     public function chatClearSessions(): JsonResponse
     {
-        $userId = auth()->id();
+        $userId = request()->user()->id;
         $deletedCount = $this->service->clearChatSessions($userId);
         return Result::success('清空成功', ['deletedCount' => $deletedCount]);
     }
