@@ -13,6 +13,19 @@ class GYZRequest extends FormRequest
         return true;
     }
 
+    /**
+     * 校验前归一化入参：查询参数的布尔值以字符串传入（如 isRead=true），
+     * 需先转成真正的布尔，否则 boolean 校验规则无法识别。
+     */
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('isRead')) {
+            $this->merge([
+                'isRead' => filter_var($this->input('isRead'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
+            ]);
+        }
+    }
+
     public function rules(): array
     {
         $action = $this->getRouteAction();
