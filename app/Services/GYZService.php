@@ -290,25 +290,27 @@ class GYZService
      */
     public function getUnreadCount(int $userId, ?string $type = null): array
     {
-        $query = Notification::active()->where('user_id', $userId)->unread();
-
-        if ($type) {
-            $query->where('type', $type);
-        }
-
-        $total = $query->count();
+        $total = Notification::active()
+            ->where('user_id', $userId)
+            ->unread()
+            ->when($type, fn ($q) => $q->where('type', $type))
+            ->count();
 
         $byType = Notification::active()
             ->where('user_id', $userId)
             ->unread()
+            ->when($type, fn ($q) => $q->where('type', $type))
             ->selectRaw('type, count(*) as count')
             ->groupBy('type')
             ->pluck('count', 'type')
             ->toArray();
 
-        $allTypes = ['NOTIFY_COMMENT_REPLY', 'NOTIFY_LIKE', 'NOTIFY_SYSTEM', 'NOTIFY_NEWS'];
-        foreach ($allTypes as $t) {
-            $byType[$t] = $byType[$t] ?? 0;
+        // 未传 type 时补齐所有类型（含 0）；传了 type 则只返回该类型
+        if (! $type) {
+            $allTypes = ['NOTIFY_COMMENT_REPLY', 'NOTIFY_LIKE', 'NOTIFY_SYSTEM', 'NOTIFY_NEWS'];
+            foreach ($allTypes as $t) {
+                $byType[$t] = $byType[$t] ?? 0;
+            }
         }
 
         return [
