@@ -179,10 +179,14 @@ class GYZController extends Controller
     }
 
     /** GET /api/games/scores/{id}/certificate */
-    public function gameCertificate(int $id): JsonResponse
+    public function gameCertificate(int $id)
     {
-        $this->service->getCertificate($id);
-        return Result::success('获取成功');
+        $userId = request()->user()->id;
+        $png = $this->service->getCertificate($userId, $id);
+
+        return response($png)
+            ->header('Content-Type', 'image/png')
+            ->header('Content-Disposition', 'attachment; filename="certificate-'.$id.'.png"');
     }
 
     // ==================================================================
