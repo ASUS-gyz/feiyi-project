@@ -42,9 +42,7 @@ class GYZRequest extends FormRequest
                 'sortBy'    => 'nullable|string|in:created_at,price,sales_count',
                 'order'     => 'nullable|string|in:asc,desc',
             ],
-            'shop.products.detail' => [
-                'id' => 'required|integer|min:1',
-            ],
+            'shop.products.detail' => [],
             'shop.orders.create' => [
                 'productId'   => 'required|integer|exists:shop_products,id',
                 'quantity'    => 'required|integer|min:1',
@@ -69,29 +67,17 @@ class GYZRequest extends FormRequest
             'notifications.unreadCount' => [
                 'type' => 'nullable|string|in:NOTIFY_COMMENT_REPLY,NOTIFY_LIKE,NOTIFY_SYSTEM,NOTIFY_NEWS',
             ],
-            'notifications.read' => [
-                'id' => 'required|integer|min:1',
-            ],
-            'notifications.delete' => [
-                'id' => 'required|integer|min:1',
-            ],
+            'notifications.read' => [],
+            'notifications.delete' => [],
 
             // === 线上轻互动 ===
             'games.list' => [
                 'type' => 'nullable|string|in:GAME_DRAWING,GAME_FIRE,GAME_COLORING',
             ],
-            'games.detail' => [
-                'type' => 'required|string|in:GAME_DRAWING,GAME_FIRE,GAME_COLORING',
-            ],
-            'games.levels' => [
-                'type' => 'required|string|in:GAME_DRAWING,GAME_FIRE,GAME_COLORING',
-            ],
-            'games.pattern' => [
-                'id' => 'required|integer|min:1',
-            ],
-            'games.template' => [
-                'id' => 'required|integer|min:1',
-            ],
+            'games.detail' => [],
+            'games.levels' => [],
+            'games.pattern' => [],
+            'games.template' => [],
             'games.scores.submit' => [
                 'gameType'  => 'required|string|in:GAME_DRAWING,GAME_FIRE,GAME_COLORING',
                 'levelId'   => 'required|integer|min:1',
@@ -107,20 +93,14 @@ class GYZRequest extends FormRequest
                 'levelId'  => 'nullable|integer|min:1',
             ],
             'games.leaderboard' => [
-                'type'       => 'required|string|in:GAME_DRAWING,GAME_FIRE,GAME_COLORING',
                 'levelId'    => 'nullable|integer|min:1',
                 'difficulty' => 'nullable|string|in:DIFFICULTY_EASY,DIFFICULTY_MEDIUM,DIFFICULTY_HARD',
                 'period'     => 'nullable|string|in:all,month,week',
                 'page'       => 'nullable|integer|min:1',
                 'pageSize'   => 'nullable|integer|min:1|max:100',
             ],
-            'games.scores.best' => [
-                'type'    => 'required|string|in:GAME_DRAWING,GAME_FIRE,GAME_COLORING',
-                'id'      => 'required|integer|min:1',
-            ],
-            'games.certificate' => [
-                'id' => 'required|integer|min:1',
-            ],
+            'games.scores.best' => [],
+            'games.certificate' => [],
 
             // === AI 智能问答 ===
             'chat.message' => [
@@ -136,12 +116,8 @@ class GYZRequest extends FormRequest
                 'page'     => 'nullable|integer|min:1',
                 'pageSize' => 'nullable|integer|min:1|max:100',
             ],
-            'chat.messages' => [
-                'id' => 'required|string|max:50',
-            ],
-            'chat.deleteSession' => [
-                'id' => 'required|string|max:50',
-            ],
+            'chat.messages' => [],
+            'chat.deleteSession' => [],
 
             default => [],
         };
