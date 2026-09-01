@@ -198,7 +198,7 @@ class GYZController extends Controller
             'max_tokens'  => $request->input('maxTokens', 512),
             'temperature' => $request->input('temperature', 0.6),
         ];
-        $userId = request()->user()->id;
+        $userId = request()->user()?->id;
         $result = $this->service->sendChatMessage($data, $userId);
         return response()->json($result);
     }
