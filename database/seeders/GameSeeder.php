@@ -30,9 +30,9 @@ class GameSeeder extends Seeder
         ]);
 
         GameLevel::insert([
-            ['game_id' => $drawing->id, 'name' => '祥云纹', 'pattern_url' => 'https://cdn.example.com/patterns/xiangyun.svg', 'stroke_count' => 48, 'time_limit' => 120, 'thumbnail' => 'https://cdn.example.com/levels/drawing-1-thumb.svg', 'difficulty' => 'DIFFICULTY_EASY', 'description' => '简单的祥云纹样，适合初学者练习基本笔法', 'sort_order' => 1, 'created_at' => now(), 'updated_at' => now()],
-            ['game_id' => $drawing->id, 'name' => '莲花纹', 'pattern_url' => 'https://cdn.example.com/patterns/lianhua.svg', 'stroke_count' => 72, 'time_limit' => 180, 'thumbnail' => 'https://cdn.example.com/levels/drawing-2-thumb.svg', 'difficulty' => 'DIFFICULTY_MEDIUM', 'description' => '中等难度的莲花纹样，需要较好的控笔能力', 'sort_order' => 2, 'created_at' => now(), 'updated_at' => now()],
-            ['game_id' => $drawing->id, 'name' => '龙凤呈祥', 'pattern_url' => 'https://cdn.example.com/patterns/longfeng.svg', 'stroke_count' => 156, 'time_limit' => 300, 'thumbnail' => 'https://cdn.example.com/levels/drawing-3-thumb.svg', 'difficulty' => 'DIFFICULTY_HARD', 'description' => '高难度龙凤纹样，挑战你的极限控笔能力', 'sort_order' => 3, 'created_at' => now(), 'updated_at' => now()],
+            ['game_id' => $drawing->id, 'name' => '祥云纹', 'pattern_url' => '/images/patterns/xiangyun.svg', 'stroke_count' => 48, 'time_limit' => 120, 'thumbnail' => 'https://cdn.example.com/levels/drawing-1-thumb.svg', 'difficulty' => 'DIFFICULTY_EASY', 'description' => '简单的祥云纹样，适合初学者练习基本笔法', 'sort_order' => 1, 'created_at' => now(), 'updated_at' => now()],
+            ['game_id' => $drawing->id, 'name' => '莲花纹', 'pattern_url' => '/images/patterns/lianhua.svg', 'stroke_count' => 72, 'time_limit' => 180, 'thumbnail' => 'https://cdn.example.com/levels/drawing-2-thumb.svg', 'difficulty' => 'DIFFICULTY_MEDIUM', 'description' => '中等难度的莲花纹样，需要较好的控笔能力', 'sort_order' => 2, 'created_at' => now(), 'updated_at' => now()],
+            ['game_id' => $drawing->id, 'name' => '龙凤呈祥', 'pattern_url' => '/images/patterns/longfeng.svg', 'stroke_count' => 156, 'time_limit' => 300, 'thumbnail' => 'https://cdn.example.com/levels/drawing-3-thumb.svg', 'difficulty' => 'DIFFICULTY_HARD', 'description' => '高难度龙凤纹样，挑战你的极限控笔能力', 'sort_order' => 3, 'created_at' => now(), 'updated_at' => now()],
         ]);
 
         // 火候控制

@@ -17,6 +17,7 @@ use App\Models\ShopProduct;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class GYZService
@@ -532,10 +533,20 @@ class GYZService
             throw new BusinessException(ResponseCode::DATA_NOT_FOUND, '关卡不存在');
         }
 
+        $svg = '';
+        $patternUrl = $level->pattern_url;
+        if ($patternUrl) {
+            // 本地路径（如 /images/patterns/xxx.svg）转成 public 目录下的实际文件读取内容
+            $path = public_path(ltrim($patternUrl, '/'));
+            if (is_file($path)) {
+                $svg = (string) file_get_contents($path);
+            }
+        }
+
         return [
             'id'          => $level->id,
             'name'        => $level->name,
-            'svg'         => '', // TODO: 实际读取 SVG 文件内容
+            'svg'         => $svg,
             'strokeWidth'  => 2,
             'strokeColor' => '#333333',
         ];
@@ -801,14 +812,128 @@ class GYZService
     }
 
     /**
-     * 电子证书（留空，后续对接）
+     * 生成电子证书（PNG）
+     *
+     * @return string PNG 文件二进制内容
      */
-    public function getCertificate(int $scoreId): void
+    public function getCertificate(int $userId, int $scoreId): string
     {
-        $score = GameScore::active()->find($scoreId);
+        $score = GameScore::active()
+            ->where('user_id', $userId)
+            ->with('user')
+            ->find($scoreId);
+
         if (! $score) {
             throw new BusinessException(ResponseCode::DATA_NOT_FOUND, '成绩记录不存在');
         }
+
+        $gameTypeMap = [
+            'GAME_DRAWING'  => '模拟描稿',
+            'GAME_FIRE'     => '火候控制',
+            'GAME_COLORING' => '纹样填色',
+        ];
+        $difficultyMap = [
+            'DIFFICULTY_EASY'   => '简单',
+            'DIFFICULTY_MEDIUM' => '中等',
+            'DIFFICULTY_HARD'   => '困难',
+        ];
+
+        $png = $this->drawCertificate([
+            'userName'   => $score->user?->nickname ?: ($score->user?->name ?: '玩家'),
+            'gameType'   => $gameTypeMap[$score->game_type] ?? $score->game_type,
+            'levelName'  => $score->level_name,
+            'score'      => (string) $score->score,
+            'duration'   => (string) $score->duration,
+            'difficulty' => $difficultyMap[$score->difficulty] ?? ($score->difficulty ?: '—'),
+            'date'       => $score->created_at?->format('Y年m月d日') ?? '',
+        ]);
+
+        // 保存到 public 磁盘并回填证书地址
+        $filename = "certificates/{$scoreId}.png";
+        Storage::disk('public')->put($filename, $png);
+        $score->update([
+            'certificate_url' => Storage::disk('public')->url($filename),
+        ]);
+
+        return $png;
+    }
+
+    /**
+     * 用 GD 绘制电子证书。
+     * 中文走 FreeType 渲染，避免 DomPDF 对部分中文字体 cmap 的兼容问题。
+     */
+    private function drawCertificate(array $d): string
+    {
+        $w = 1600;
+        $h = 1000;
+        $img = imagecreatetruecolor($w, $h);
+
+        $bg    = imagecolorallocate($img, 253, 248, 238);
+        $gold  = imagecolorallocate($img, 184, 134, 11);
+        $brown = imagecolorallocate($img, 160, 82, 45);
+        $body  = imagecolorallocate($img, 90, 70, 48);
+        $muted = imagecolorallocate($img, 138, 122, 96);
+        $red   = imagecolorallocate($img, 192, 57, 43);
+        $cream = imagecolorallocate($img, 255, 250, 240);
+
+        $font = storage_path('fonts/simhei.ttf');
+
+        imagefilledrectangle($img, 0, 0, $w, $h, $bg);
+
+        // 双边框
+        imagerectangle($img, 50, 50, $w - 50, $h - 50, $gold);
+        imagesetthickness($img, 3);
+        imagerectangle($img, 66, 66, $w - 66, $h - 66, $gold);
+        imagesetthickness($img, 1);
+
+        // 标题 / 副标题
+        $this->drawCentered($img, 72, 195, $brown, $font, '电子证书');
+        $this->drawCentered($img, 26, 265, $gold, $font, '非遗烧箔 · 线上轻互动');
+
+        // 姓名
+        $this->drawCentered($img, 34, 380, $body, $font, '兹证明 ' . $d['userName']);
+
+        // 信息
+        $info = [
+            '参与项目：' . $d['gameType'],
+            '挑战关卡：' . $d['levelName'],
+            '获得成绩：' . $d['score'] . ' 分',
+            '完成用时：' . $d['duration'] . ' 秒',
+            '挑战难度：' . $d['difficulty'],
+        ];
+        $y = 480;
+        foreach ($info as $line) {
+            $this->drawCentered($img, 28, $y, $body, $font, $line);
+            $y += 58;
+        }
+
+        // 日期
+        $this->drawCentered($img, 22, 820, $muted, $font, '颁发日期：' . $d['date']);
+
+        // 印章
+        $cx = 1290;
+        $cy = 740;
+        $r  = 90;
+        imagefilledellipse($img, $cx, $cy, $r * 2, $r * 2, $red);
+        $this->drawCentered($img, 30, $cy - 12, $cream, $font, '灼箔');
+        $this->drawCentered($img, 30, $cy + 30, $cream, $font, '凝艺');
+
+        ob_start();
+        imagepng($img);
+        imagedestroy($img);
+
+        return (string) ob_get_clean();
+    }
+
+    /**
+     * 水平居中绘制文字
+     */
+    private function drawCentered($img, int $size, int $y, int $color, string $font, string $text): void
+    {
+        $bbox  = imagettfbbox($size, 0, $font, $text);
+        $width = $bbox[2] - $bbox[0];
+        $x     = (int) round((imagesx($img) - $width) / 2);
+        imagettftext($img, $size, 0, $x, $y, $color, $font, $text);
     }
 
     // ==================================================================
