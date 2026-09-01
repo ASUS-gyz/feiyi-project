@@ -33,14 +33,14 @@ class GYZRequest extends FormRequest
         return match ($action) {
             // === 文创商城 ===
             'shop.products' => [
-                'page'      => 'integer|min:1',
-                'pageSize'  => 'integer|min:1|max:100',
-                'categoryId'=> 'integer|exists:shop_categories,id',
-                'keyword'   => 'string|max:200',
-                'minPrice'  => 'numeric|min:0',
-                'maxPrice'  => 'numeric|min:0',
-                'sortBy'    => 'string|in:created_at,price,sales_count',
-                'order'     => 'string|in:asc,desc',
+                'page'      => 'nullable|integer|min:1',
+                'pageSize'  => 'nullable|integer|min:1|max:100',
+                'categoryId'=> 'nullable|integer|exists:shop_categories,id',
+                'keyword'   => 'nullable|string|max:200',
+                'minPrice'  => 'nullable|numeric|min:0',
+                'maxPrice'  => 'nullable|numeric|min:0',
+                'sortBy'    => 'nullable|string|in:created_at,price,sales_count',
+                'order'     => 'nullable|string|in:asc,desc',
             ],
             'shop.products.detail' => [
                 'id' => 'required|integer|min:1',
@@ -54,20 +54,20 @@ class GYZRequest extends FormRequest
                 'remark'      => 'nullable|string|max:500',
             ],
             'shop.orders.my' => [
-                'page'     => 'integer|min:1',
-                'pageSize' => 'integer|min:1|max:100',
-                'status'   => 'string|in:ORDER_PENDING,ORDER_PAID,ORDER_SHIPPED,ORDER_COMPLETED,ORDER_CANCELLED',
+                'page'     => 'nullable|integer|min:1',
+                'pageSize' => 'nullable|integer|min:1|max:100',
+                'status'   => 'nullable|string|in:ORDER_PENDING,ORDER_PAID,ORDER_SHIPPED,ORDER_COMPLETED,ORDER_CANCELLED',
             ],
 
             // === 消息通知 ===
             'notifications.list' => [
-                'page'     => 'integer|min:1',
-                'pageSize' => 'integer|min:1|max:100',
-                'isRead'   => 'boolean',
-                'type'     => 'string|in:NOTIFY_COMMENT_REPLY,NOTIFY_LIKE,NOTIFY_SYSTEM,NOTIFY_NEWS',
+                'page'     => 'nullable|integer|min:1',
+                'pageSize' => 'nullable|integer|min:1|max:100',
+                'isRead'   => 'nullable|boolean',
+                'type'     => 'nullable|string|in:NOTIFY_COMMENT_REPLY,NOTIFY_LIKE,NOTIFY_SYSTEM,NOTIFY_NEWS',
             ],
             'notifications.unreadCount' => [
-                'type' => 'string|in:NOTIFY_COMMENT_REPLY,NOTIFY_LIKE,NOTIFY_SYSTEM,NOTIFY_NEWS',
+                'type' => 'nullable|string|in:NOTIFY_COMMENT_REPLY,NOTIFY_LIKE,NOTIFY_SYSTEM,NOTIFY_NEWS',
             ],
             'notifications.read' => [
                 'id' => 'required|integer|min:1',
@@ -78,7 +78,7 @@ class GYZRequest extends FormRequest
 
             // === 线上轻互动 ===
             'games.list' => [
-                'type' => 'string|in:GAME_DRAWING,GAME_FIRE,GAME_COLORING',
+                'type' => 'nullable|string|in:GAME_DRAWING,GAME_FIRE,GAME_COLORING',
             ],
             'games.detail' => [
                 'type' => 'required|string|in:GAME_DRAWING,GAME_FIRE,GAME_COLORING',
@@ -97,22 +97,22 @@ class GYZRequest extends FormRequest
                 'levelId'   => 'required|integer|min:1',
                 'score'     => 'required|numeric|min:0|max:100',
                 'duration'  => 'required|integer|min:0',
-                'difficulty'=> 'string|in:DIFFICULTY_EASY,DIFFICULTY_MEDIUM,DIFFICULTY_HARD',
+                'difficulty'=> 'nullable|string|in:DIFFICULTY_EASY,DIFFICULTY_MEDIUM,DIFFICULTY_HARD',
                 'metadata'  => 'nullable|array',
             ],
             'games.scores.my' => [
-                'page'     => 'integer|min:1',
-                'pageSize' => 'integer|min:1|max:100',
-                'gameType' => 'string|in:GAME_DRAWING,GAME_FIRE,GAME_COLORING',
-                'levelId'  => 'integer|min:1',
+                'page'     => 'nullable|integer|min:1',
+                'pageSize' => 'nullable|integer|min:1|max:100',
+                'gameType' => 'nullable|string|in:GAME_DRAWING,GAME_FIRE,GAME_COLORING',
+                'levelId'  => 'nullable|integer|min:1',
             ],
             'games.leaderboard' => [
                 'type'       => 'required|string|in:GAME_DRAWING,GAME_FIRE,GAME_COLORING',
-                'levelId'    => 'integer|min:1',
-                'difficulty' => 'string|in:DIFFICULTY_EASY,DIFFICULTY_MEDIUM,DIFFICULTY_HARD',
-                'period'     => 'string|in:all,month,week',
-                'page'       => 'integer|min:1',
-                'pageSize'   => 'integer|min:1|max:100',
+                'levelId'    => 'nullable|integer|min:1',
+                'difficulty' => 'nullable|string|in:DIFFICULTY_EASY,DIFFICULTY_MEDIUM,DIFFICULTY_HARD',
+                'period'     => 'nullable|string|in:all,month,week',
+                'page'       => 'nullable|integer|min:1',
+                'pageSize'   => 'nullable|integer|min:1|max:100',
             ],
             'games.scores.best' => [
                 'type'    => 'required|string|in:GAME_DRAWING,GAME_FIRE,GAME_COLORING',
@@ -126,15 +126,15 @@ class GYZRequest extends FormRequest
             'chat.message' => [
                 'message'     => 'required|string|max:1000',
                 'sessionId'   => 'nullable|string|max:50',
-                'maxTokens'   => 'integer|min:128|max:2048',
-                'temperature' => 'numeric|min:0.1|max:1.5',
+                'maxTokens'   => 'nullable|integer|min:128|max:2048',
+                'temperature' => 'nullable|numeric|min:0.1|max:1.5',
             ],
             'chat.test' => [
                 'message' => 'required|string',
             ],
             'chat.sessions' => [
-                'page'     => 'integer|min:1',
-                'pageSize' => 'integer|min:1|max:100',
+                'page'     => 'nullable|integer|min:1',
+                'pageSize' => 'nullable|integer|min:1|max:100',
             ],
             'chat.messages' => [
                 'id' => 'required|string|max:50',
