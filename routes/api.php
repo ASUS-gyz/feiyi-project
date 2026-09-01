@@ -73,10 +73,10 @@ Route::prefix('shop')->group(function () {
 Route::prefix('notifications')->middleware('jwt.auth')->group(function () {
     Route::get('/',                  [GYZController::class, 'notificationList']);
     Route::get('unread-count',       [GYZController::class, 'notificationUnreadCount']);
-    Route::post('{id}/read',         [GYZController::class, 'notificationRead']);
+    Route::post('{id}/read',         [GYZController::class, 'notificationRead'])->whereNumber('id');
     Route::post('read-all',          [GYZController::class, 'notificationReadAll']);
-    Route::delete('{id}',            [GYZController::class, 'notificationDelete']);
     Route::delete('read',            [GYZController::class, 'notificationClearRead']);
+    Route::delete('{id}',            [GYZController::class, 'notificationDelete'])->whereNumber('id');
 });
 
 // 线上轻互动（小游戏）
