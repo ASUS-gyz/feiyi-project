@@ -161,38 +161,39 @@ class GYZRequest extends FormRequest
             return $name;
         }
 
-        // 通过 method + path 推断 action
+        // 通过 method + path 推断 action（去掉可能的 api/ 前缀）
         $method = $this->method();
-        $path   = $this->path();
+        $path   = ltrim((string) $this->path(), '/');
+        $path   = str_starts_with($path, 'api/') ? substr($path, 4) : $path;
 
         return match (true) {
-            $method === 'GET' && $path === 'api/shop/categories' => 'shop.categories',
-            $method === 'GET' && preg_match('#^api/shop/products/\d+$#', $path) === 1 => 'shop.products.detail',
-            $method === 'GET' && $path === 'api/shop/products' => 'shop.products',
-            $method === 'POST' && $path === 'api/shop/orders' => 'shop.orders.create',
-            $method === 'GET' && $path === 'api/shop/orders' => 'shop.orders.my',
+            $method === 'GET' && $path === 'shop/categories' => 'shop.categories',
+            $method === 'GET' && preg_match('#^shop/products/\d+$#', $path) === 1 => 'shop.products.detail',
+            $method === 'GET' && $path === 'shop/products' => 'shop.products',
+            $method === 'POST' && $path === 'shop/orders' => 'shop.orders.create',
+            $method === 'GET' && $path === 'shop/orders' => 'shop.orders.my',
             // notifications
-            $method === 'GET' && $path === 'api/notifications' => 'notifications.list',
-            $method === 'GET' && $path === 'api/notifications/unread-count' => 'notifications.unreadCount',
-            $method === 'POST' && preg_match('#^api/notifications/\d+/read$#', $path) === 1 => 'notifications.read',
-            $method === 'DELETE' && preg_match('#^api/notifications/\d+$#', $path) === 1 => 'notifications.delete',
+            $method === 'GET' && $path === 'notifications' => 'notifications.list',
+            $method === 'GET' && $path === 'notifications/unread-count' => 'notifications.unreadCount',
+            $method === 'POST' && preg_match('#^notifications/\d+/read$#', $path) === 1 => 'notifications.read',
+            $method === 'DELETE' && preg_match('#^notifications/\d+$#', $path) === 1 => 'notifications.delete',
             // chat
-            $method === 'POST' && $path === 'api/chat/message' => 'chat.message',
-            $method === 'GET' && $path === 'api/chat/test' => 'chat.test',
-            $method === 'GET' && $path === 'api/chat/sessions' => 'chat.sessions',
-            $method === 'GET' && preg_match('#^api/chat/sessions/[^/]+/messages$#', $path) === 1 => 'chat.messages',
-            $method === 'DELETE' && preg_match('#^api/chat/sessions/[^/]+$#', $path) === 1 => 'chat.deleteSession',
+            $method === 'POST' && $path === 'chat/message' => 'chat.message',
+            $method === 'GET' && $path === 'chat/test' => 'chat.test',
+            $method === 'GET' && $path === 'chat/sessions' => 'chat.sessions',
+            $method === 'GET' && preg_match('#^chat/sessions/[^/]+/messages$#', $path) === 1 => 'chat.messages',
+            $method === 'DELETE' && preg_match('#^chat/sessions/[^/]+$#', $path) === 1 => 'chat.deleteSession',
             // games
-            $method === 'GET' && $path === 'api/games' => 'games.list',
-            $method === 'GET' && preg_match('#^api/games/(?!drawing/|coloring/|scores)[^/]+/levels/(\d+)/best$#', $path) === 1 => 'games.scores.best',
-            $method === 'GET' && preg_match('#^api/games/(?!scores)[^/]+/levels$#', $path) === 1 => 'games.levels',
-            $method === 'GET' && preg_match('#^api/games/drawing/levels/\d+/pattern$#', $path) === 1 => 'games.pattern',
-            $method === 'GET' && preg_match('#^api/games/coloring/templates/\d+$#', $path) === 1 => 'games.template',
-            $method === 'GET' && preg_match('#^api/games/[^/]+/leaderboard$#', $path) === 1 => 'games.leaderboard',
-            $method === 'GET' && preg_match('#^api/games/[^/]+$#', $path) === 1 => 'games.detail',
-            $method === 'POST' && $path === 'api/games/scores' => 'games.scores.submit',
-            $method === 'GET' && $path === 'api/games/scores/my' => 'games.scores.my',
-            $method === 'GET' && preg_match('#^api/games/scores/\d+/certificate$#', $path) === 1 => 'games.certificate',
+            $method === 'GET' && $path === 'games' => 'games.list',
+            $method === 'GET' && preg_match('#^games/(?!drawing/|coloring/|scores)[^/]+/levels/(\d+)/best$#', $path) === 1 => 'games.scores.best',
+            $method === 'GET' && preg_match('#^games/(?!scores)[^/]+/levels$#', $path) === 1 => 'games.levels',
+            $method === 'GET' && preg_match('#^games/drawing/levels/\d+/pattern$#', $path) === 1 => 'games.pattern',
+            $method === 'GET' && preg_match('#^games/coloring/templates/\d+$#', $path) === 1 => 'games.template',
+            $method === 'GET' && preg_match('#^games/[^/]+/leaderboard$#', $path) === 1 => 'games.leaderboard',
+            $method === 'GET' && preg_match('#^games/[^/]+$#', $path) === 1 => 'games.detail',
+            $method === 'POST' && $path === 'games/scores' => 'games.scores.submit',
+            $method === 'GET' && $path === 'games/scores/my' => 'games.scores.my',
+            $method === 'GET' && preg_match('#^games/scores/\d+/certificate$#', $path) === 1 => 'games.certificate',
             default => null,
         };
     }
