@@ -4,6 +4,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use App\Http\Middleware\JwtMiddleware;
+use App\Http\Middleware\OptionalJwtMiddleware;
 use App\Http\Middleware\TraceIdMiddleware;
 use App\Support\Result;
 use App\Enums\ResponseCode;
@@ -26,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(TraceIdMiddleware::class);
         $middleware->alias([
             'jwt.auth' => JwtMiddleware::class,
+            'jwt.optional' => OptionalJwtMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

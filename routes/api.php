@@ -50,7 +50,7 @@ Route::prefix('donations')->group(function () {
 //GYZ 模块
 // AI 智能问答
 Route::prefix('chat')->group(function () {
-    Route::post('message',               [GYZController::class, 'chatMessage']);
+    Route::post('message',               [GYZController::class, 'chatMessage'])->middleware('jwt.optional');
     Route::get('test',                   [GYZController::class, 'chatTest']);
     Route::get('health',                 [GYZController::class, 'chatHealth']);
     Route::get('welcome',                [GYZController::class, 'chatWelcome']);
