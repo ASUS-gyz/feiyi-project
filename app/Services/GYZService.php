@@ -925,6 +925,7 @@ class GYZService
 
         $response = Http::timeout(30)
             ->withToken($apiKey)
+            ->withOptions(['verify' => storage_path('cacert.pem')])
             ->post($apiUrl, [
                 'model'       => $model,
                 'messages'    => $messages,
