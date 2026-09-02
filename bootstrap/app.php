@@ -81,7 +81,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 'message' => $e->getMessage(),
             ]);
 
-            return Result::error(ResponseCode::DATABASE_ERROR);
+            return Result::error(ResponseCode::SERVER_INTERNAL_ERROR);
         });
 
         /**
