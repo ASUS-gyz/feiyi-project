@@ -21,8 +21,7 @@ class ShopProductSeeder extends Seeder
                 'stock' => 50,
                 'sales_count' => 23,
                 'images' => [
-                    '/images/products/qianshou-1.jpg',
-                    '/images/products/qianshou-2.jpg',
+                    '/images/products/qianshou-1.webp',
                 ],
                 'specs' => [
                     ['label' => '尺寸', 'value' => '50 × 80cm'],
@@ -56,7 +55,7 @@ class ShopProductSeeder extends Seeder
                 'stock' => 120,
                 'sales_count' => 87,
                 'images' => [
-                    '/images/products/hehua-1.jpg',
+                    '/images/products/hehua-1.png',
                 ],
                 'specs' => [
                     ['label' => '尺寸', 'value' => '30 × 40cm'],
@@ -104,7 +103,7 @@ class ShopProductSeeder extends Seeder
                 'stock' => 1000,
                 'sales_count' => 640,
                 'images' => [
-                    '/images/products/xiangao-1.jpg',
+                    '/images/products/xiangao-1.png',
                 ],
                 'specs' => [
                     ['label' => '数量', 'value' => '10款纹样'],
