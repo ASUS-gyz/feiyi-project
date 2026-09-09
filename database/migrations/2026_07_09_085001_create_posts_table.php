@@ -27,7 +27,10 @@ return new class extends Migration
             $table->index('category');
             $table->index('status');
             $table->index('created_at');
-            $table->fullText(['title', 'content']);
+            // 全文本索引仅 MySQL 支持，SQLite 测试环境跳过（搜索走 LIKE，不受影响）
+            if (in_array(Schema::getConnection()->getDriverName(), ['mysql', 'mariadb'])) {
+                $table->fullText(['title', 'content']);
+            }
         });
     }
 
