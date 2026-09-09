@@ -46,7 +46,6 @@ class LikeIdempotencyTest extends TestCase
             'period' => '宋代',
             'school' => '测试流派',
             'cover_image' => 'covers/test.jpg',
-            'user_id' => $this->registerUser()['userId'],
         ]);
     }
 

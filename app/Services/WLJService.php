@@ -11,6 +11,7 @@ use App\Models\CooperationSubmission;
 use App\Models\Favorite;
 use App\Models\Masterpiece;
 use App\Models\MasterpieceLike;
+use App\Models\Notification;
 use App\Models\Post;
 use App\Models\PostLike;
 use App\Models\User;
@@ -231,6 +232,8 @@ class WLJService
 
     /**
      * 发布评论或回复
+     *
+     * 评论写入、帖子评论数、父楼回复数同事务提交，不出现半提交状态。
      */
     public function createComment(User $user, array $data): array
     {
@@ -242,6 +245,7 @@ class WLJService
             throw new BusinessException(ResponseCode::DATA_NOT_FOUND, '帖子不存在');
         }
 
+        $parent = null;
         if ($parentId) {
             $parent = Comment::active()->where('id', $parentId)->where('post_id', $postId)->first();
             if (!$parent) {
@@ -249,19 +253,34 @@ class WLJService
             }
         }
 
-        $comment = Comment::create([
-            'user_id'   => $user->id,
-            'post_id'   => $postId,
-            'parent_id' => $parentId,
-            'content'   => $data['content'],
-            'status'    => 'COMMENT_NORMAL',
-        ]);
+        $comment = DB::transaction(function () use ($user, $postId, $parentId, $data, $post, $parent) {
+            $comment = Comment::create([
+                'user_id'   => $user->id,
+                'post_id'   => $postId,
+                'parent_id' => $parentId,
+                'content'   => $data['content'],
+                'status'    => 'COMMENT_NORMAL',
+            ]);
 
-        // 维护计数
-        $post->increment('comment_count');
-        if ($parentId) {
-            Comment::where('id', $parentId)->increment('reply_count');
-        }
+            // 维护计数（与评论写入同事务）
+            $post->increment('comment_count');
+            if ($parentId) {
+                Comment::where('id', $parentId)->increment('reply_count');
+            }
+
+            // 通知父楼作者（自我回复不通知；与主操作同事务，发生了就查得到）
+            if ($parent && $parent->user_id !== $user->id) {
+                Notification::create([
+                    'user_id'    => $parent->user_id,
+                    'type'       => 'NOTIFY_COMMENT_REPLY',
+                    'title'      => '评论收到新回复',
+                    'message'    => '你的评论收到了新的回复',
+                    'related_id' => $comment->id,
+                ]);
+            }
+
+            return $comment;
+        });
 
         $comment->load('user');
 
@@ -292,6 +311,9 @@ class WLJService
 
     /**
      * 删除评论（作者/管理员，软删除）
+     *
+     * 目标楼与其全部活跃子孙同事务软删（不留孤儿回复）；
+     * 帖子评论数按实际隐藏总数回减，目标楼是回复时父楼 reply_count 回减。
      */
     public function deleteComment(int $id, User $user): void
     {
@@ -305,18 +327,30 @@ class WLJService
             throw new BusinessException(ResponseCode::FORBIDDEN);
         }
 
-        $comment->is_deleted = true;
-        $comment->deleted_at = now();
-        $comment->save();
+        DB::transaction(function () use ($comment): void {
+            // 收集目标楼及其全部活跃子孙（防御多层嵌套）
+            $toDelete = collect([$comment->id]);
+            $frontier = collect([$comment->id]);
+            while ($frontier->isNotEmpty()) {
+                $children = Comment::active()->whereIn('parent_id', $frontier)->pluck('id');
+                $toDelete = $toDelete->merge($children);
+                $frontier = $children;
+            }
 
-        // 维护计数
-        $post = Post::find($comment->post_id);
-        if ($post && $post->comment_count > 0) {
-            $post->decrement('comment_count');
-        }
-        if ($comment->parent_id) {
-            Comment::where('id', $comment->parent_id)->where('reply_count', '>', 0)->decrement('reply_count');
-        }
+            // 批量软删（builder update，不经 fillable）
+            Comment::whereIn('id', $toDelete)->update(['is_deleted' => true, 'deleted_at' => now()]);
+
+            // 帖子评论数按实际隐藏总数回减
+            $post = Post::find($comment->post_id);
+            if ($post && $post->comment_count > 0) {
+                $post->decrement('comment_count', min($toDelete->count(), (int) $post->comment_count));
+            }
+
+            // 目标楼是回复：父楼 reply_count 回减
+            if ($comment->parent_id) {
+                Comment::where('id', $comment->parent_id)->where('reply_count', '>', 0)->decrement('reply_count');
+            }
+        });
     }
 
     /**
@@ -342,6 +376,21 @@ class WLJService
             return DB::transaction(function () use ($comment, $user, $commentId): int {
                 CommentLike::create(['user_id' => $user->id, 'comment_id' => $commentId]);
                 $comment->increment('like_count');
+
+                // 通知评论作者（自我点赞不通知；同条评论只在首次点赞时写，避免反复点赞堆积）
+                if ($comment->user_id !== $user->id
+                    && ! Notification::where('user_id', $comment->user_id)
+                        ->where('type', 'NOTIFY_LIKE')
+                        ->where('related_id', $commentId)
+                        ->exists()) {
+                    Notification::create([
+                        'user_id'    => $comment->user_id,
+                        'type'       => 'NOTIFY_LIKE',
+                        'title'      => '评论收到新点赞',
+                        'message'    => '你的评论收到了新的点赞',
+                        'related_id' => $commentId,
+                    ]);
+                }
 
                 return (int) $comment->fresh()->like_count;
             });
