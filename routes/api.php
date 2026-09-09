@@ -111,11 +111,11 @@ Route::prefix('posts')->group(function () {
 Route::prefix('comments')->group(function () {
     Route::get('post/{postId}',   [WLJController::class, 'commentByPost'])->name('comments.byPost')->whereNumber('postId');
     Route::get('/',               [WLJController::class, 'commentList'])->name('comments.list');
-    Route::post('/',              [WLJController::class, 'commentCreate'])->name('comments.create');
+    Route::post('/',              [WLJController::class, 'commentCreate'])->middleware('jwt.auth')->name('comments.create');
     Route::put('{id}',            [WLJController::class, 'commentUpdate'])->middleware('jwt.auth')->name('comments.update')->whereNumber('id');
     Route::delete('{id}',         [WLJController::class, 'commentDelete'])->middleware('jwt.auth')->name('comments.delete')->whereNumber('id');
-    Route::post('{id}/like',      [WLJController::class, 'commentLike'])->name('comments.like')->whereNumber('id');
-    Route::delete('{id}/like',    [WLJController::class, 'commentUnlike'])->name('comments.unlike')->whereNumber('id');
+    Route::post('{id}/like',      [WLJController::class, 'commentLike'])->middleware('jwt.auth')->name('comments.like')->whereNumber('id');
+    Route::delete('{id}/like',    [WLJController::class, 'commentUnlike'])->middleware('jwt.auth')->name('comments.unlike')->whereNumber('id');
 });
 
 // 传世名作模块
