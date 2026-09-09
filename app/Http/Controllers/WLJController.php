@@ -71,6 +71,12 @@ class WLJController extends Controller
     /** GET /api/comments */
     public function commentList(WLJRequest $request): JsonResponse
     {
+        // 全量评论列表为后台管理用途，仅管理员可访问
+        $user = $this->authUser();
+        if ($user->role !== 'ADMIN') {
+            return Result::error(ResponseCode::FORBIDDEN, '无访问权限');
+        }
+
         return Result::success('获取成功', $this->service->listAllComments($request->validated()));
     }
 
