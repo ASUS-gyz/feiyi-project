@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use App\Http\Middleware\JwtMiddleware;
 use App\Http\Middleware\OptionalJwtMiddleware;
 use App\Http\Middleware\TraceIdMiddleware;
@@ -29,6 +30,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'jwt.auth' => JwtMiddleware::class,
             'jwt.optional' => OptionalJwtMiddleware::class,
         ]);
+
+        // 全站 API 兜底限流（策略见 config/throttle.php 的 global）
+        $middleware->api(prepend: ['throttle:global']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
 
@@ -71,6 +75,19 @@ return Application::configure(basePath: dirname(__DIR__))
         });
 
         /**
+         * 限流异常：HTTP 429 + 统一信封（code=6），保留 Retry-After 头
+         */
+        $exceptions->render(function (ThrottleRequestsException $e, $request) {
+            $response = Result::error(ResponseCode::TOO_MANY_REQUESTS);
+            $response->setStatusCode(429);
+            foreach ($e->getHeaders() as $name => $value) {
+                $response->headers->set($name, $value);
+            }
+
+            return $response;
+        });
+
+        /**
          * 数据库异常
          */
         $exceptions->render(function (QueryException $e, $request) {
@@ -87,6 +104,9 @@ return Application::configure(basePath: dirname(__DIR__))
         /**
          * 系统异常日志（兜底）
          */
+        // 限流触发是正常运营信号，不作为异常上报
+        $exceptions->dontReport(ThrottleRequestsException::class);
+
         $exceptions->report(function (\Throwable $e) {
             Log::channel('exception')->error($e->getMessage(), [
                 'trace_id' => request()->attributes->get('trace_id'),

@@ -1,0 +1,47 @@
+<?php
+
+/**
+ * 限流策略与阈值（集中配置，环境变量可覆盖）
+ *
+ * max：窗口内最大请求数；decay：窗口秒数。
+ * 已知约束：限流计数存于默认缓存驱动，单实例部署成立；
+ * 未来多实例部署需切换共享缓存驱动（如 redis）。
+ */
+return [
+    // 全站 API 兜底：每 IP
+    'global' => [
+        'max' => (int) env('THROTTLE_GLOBAL_MAX', 60),
+        'decay' => (int) env('THROTTLE_GLOBAL_DECAY', 60),
+    ],
+
+    // 登录：IP + 账号组合
+    'auth-login' => [
+        'max' => (int) env('THROTTLE_LOGIN_MAX', 5),
+        'decay' => (int) env('THROTTLE_LOGIN_DECAY', 60),
+    ],
+
+    // 注册：每 IP
+    'auth-register' => [
+        'max' => (int) env('THROTTLE_REGISTER_MAX', 5),
+        'decay' => (int) env('THROTTLE_REGISTER_DECAY', 3600),
+    ],
+
+    // 上传：登录按用户，未认证回退 IP
+    'upload' => [
+        'max' => (int) env('THROTTLE_UPLOAD_MAX', 30),
+        'decay' => (int) env('THROTTLE_UPLOAD_DECAY', 60),
+    ],
+
+    // AI 聊天：登录按账号、游客按 IP（路由侧需保证认证中间件先于 throttle 执行）
+    'chat' => [
+        'auth_max' => (int) env('THROTTLE_CHAT_AUTH_MAX', 10),
+        'guest_max' => (int) env('THROTTLE_CHAT_GUEST_MAX', 3),
+        'decay' => (int) env('THROTTLE_CHAT_DECAY', 60),
+    ],
+
+    // 捐赠创建：登录按用户，未认证回退 IP
+    'donation' => [
+        'max' => (int) env('THROTTLE_DONATION_MAX', 5),
+        'decay' => (int) env('THROTTLE_DONATION_DECAY', 60),
+    ],
+];
