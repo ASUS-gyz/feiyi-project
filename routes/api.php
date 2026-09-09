@@ -110,7 +110,7 @@ Route::prefix('posts')->group(function () {
 // 评论与回复模块
 Route::prefix('comments')->group(function () {
     Route::get('post/{postId}',   [WLJController::class, 'commentByPost'])->name('comments.byPost')->whereNumber('postId');
-    Route::get('/',               [WLJController::class, 'commentList'])->name('comments.list');
+    Route::get('/',               [WLJController::class, 'commentList'])->middleware('jwt.auth')->name('comments.list');
     Route::post('/',              [WLJController::class, 'commentCreate'])->middleware('jwt.auth')->name('comments.create');
     Route::put('{id}',            [WLJController::class, 'commentUpdate'])->middleware('jwt.auth')->name('comments.update')->whereNumber('id');
     Route::delete('{id}',         [WLJController::class, 'commentDelete'])->middleware('jwt.auth')->name('comments.delete')->whereNumber('id');
