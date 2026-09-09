@@ -49,8 +49,8 @@ class ChatRateLimitTest extends TestCase
 
         for ($i = 0; $i < 2; $i++) {
             $response = $this->postChat();
-            $response->assertStatus(200);
-            $this->assertSame('（测试桩回复）', $response->json('aiResponse'));
+            $this->assertSuccessEnvelope($response);
+            $this->assertSame('（测试桩回复）', $response->json('data.aiResponse'));
         }
 
         $response = $this->postChat();
@@ -70,8 +70,8 @@ class ChatRateLimitTest extends TestCase
 
         for ($i = 0; $i < 2; $i++) {
             $response = $this->postChat($token);
-            $response->assertStatus(200);
-            $this->assertSame('（测试桩回复）', $response->json('aiResponse'));
+            $this->assertSuccessEnvelope($response);
+            $this->assertSame('（测试桩回复）', $response->json('data.aiResponse'));
         }
 
         $response = $this->postChat($token);
@@ -88,8 +88,8 @@ class ChatRateLimitTest extends TestCase
         config(['throttle.chat.guest_max' => 1, 'throttle.chat.decay' => 60]);
 
         $first = $this->postChat('invalid-token');
-        $first->assertStatus(200);
-        $this->assertSame('（测试桩回复）', $first->json('aiResponse'));
+        $this->assertSuccessEnvelope($first);
+        $this->assertSame('（测试桩回复）', $first->json('data.aiResponse'));
 
         $second = $this->postChat('invalid-token');
 

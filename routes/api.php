@@ -51,7 +51,6 @@ Route::prefix('donations')->group(function () {
 // AI 智能问答
 Route::prefix('chat')->group(function () {
     Route::post('message',               [GYZController::class, 'chatMessage'])->middleware(['jwt.optional', 'throttle.user:chat']);
-    Route::get('test',                   [GYZController::class, 'chatTest']);
     Route::get('health',                 [GYZController::class, 'chatHealth']);
     Route::get('welcome',                [GYZController::class, 'chatWelcome']);
     Route::get('sessions',               [GYZController::class, 'chatSessions'])->middleware('jwt.auth');

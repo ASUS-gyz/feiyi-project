@@ -109,9 +109,6 @@ class GYZRequest extends FormRequest
                 'maxTokens'   => 'nullable|integer|min:128|max:2048',
                 'temperature' => 'nullable|numeric|min:0.1|max:1.5',
             ],
-            'chat.test' => [
-                'message' => 'required|string',
-            ],
             'chat.sessions' => [
                 'page'     => 'nullable|integer|min:1',
                 'pageSize' => 'nullable|integer|min:1|max:100',
@@ -168,7 +165,6 @@ class GYZRequest extends FormRequest
             $method === 'DELETE' && preg_match('#^notifications/\d+$#', $path) === 1 => 'notifications.delete',
             // chat
             $method === 'POST' && $path === 'chat/message' => 'chat.message',
-            $method === 'GET' && $path === 'chat/test' => 'chat.test',
             $method === 'GET' && $path === 'chat/sessions' => 'chat.sessions',
             $method === 'GET' && preg_match('#^chat/sessions/[^/]+/messages$#', $path) === 1 => 'chat.messages',
             $method === 'DELETE' && preg_match('#^chat/sessions/[^/]+$#', $path) === 1 => 'chat.deleteSession',

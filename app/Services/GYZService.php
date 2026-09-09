@@ -943,12 +943,35 @@ class GYZService
     /**
      * 发送 AI 聊天消息
      */
+    /**
+     * 发送聊天消息
+     *
+     * 登录用户：会话内多轮对话（含会话归属校验）；
+     * 游客：单轮问答，不创建任何会话与消息记录，会话语义仅对登录用户存在。
+     *
+     * @return array{aiResponse: string, sessionId: ?string, timestamp: string} 信封 data 结构
+     */
     public function sendChatMessage(array $data, ?int $userId = null): array
     {
         $message   = $data['message'];
         $sessionId = $data['session_id'] ?? '';
         $maxTokens = (int) ($data['max_tokens'] ?? 512);
         $temperature = (float) ($data['temperature'] ?? 0.6);
+
+        // 游客单轮化：不创建/不查询会话、不落库；携带会话 ID 一律按不存在处理，防枚举探测
+        if ($userId === null) {
+            if (!empty($sessionId)) {
+                throw new BusinessException(ResponseCode::DATA_NOT_FOUND, '会话不存在');
+            }
+
+            $aiResponse = $this->callAI($message, [], $maxTokens, $temperature);
+
+            return [
+                'aiResponse' => $aiResponse,
+                'sessionId'  => null,
+                'timestamp'  => now()->toIso8601String(),
+            ];
+        }
 
         // 获取或创建会话
         if (empty($sessionId)) {
@@ -1024,8 +1047,6 @@ class GYZService
         ]);
 
         return [
-            'success'    => true,
-            'message'    => 'success',
             'aiResponse' => $aiResponse,
             'sessionId'  => $sessionId,
             'timestamp'  => now()->toIso8601String(),
@@ -1109,14 +1130,6 @@ PROMPT;
         }
 
         return '您好！我是烧箔画非遗传承助手。您可以向我提问关于烧箔技艺的历史、工具、技法、鉴赏等任何问题。我会尽力为您解答！';
-    }
-
-    /**
-     * 聊天测试
-     */
-    public function chatTest(string $message, ?int $userId = null): array
-    {
-        return $this->sendChatMessage(['message' => $message], $userId);
     }
 
     /**

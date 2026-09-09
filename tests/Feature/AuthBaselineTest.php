@@ -61,10 +61,10 @@ class AuthBaselineTest extends TestCase
 
         $response = $this->postJson('/api/chat/message', ['message' => '你好']);
 
-        // 聊天端点当前返回自有结构而非统一信封（已知不一致，由票 #31 统一修正）。
-        // 本基例只验证：外部 AI 调用路径被假对象拦截，测试离线可跑。
-        $response->assertStatus(200);
-        $this->assertSame('（测试桩回复）', $response->json('aiResponse'));
+        // 本基例验证：外部 AI 调用路径被假对象拦截，测试离线可跑；
+        // 响应走统一信封（票 #31 起聊天端点与全站一致）
+        $this->assertSuccessEnvelope($response);
+        $this->assertSame('（测试桩回复）', $response->json('data.aiResponse'));
         Http::assertSent(fn ($request) => str_starts_with($request->url(), 'https://api.deepseek.com'));
     }
 }
