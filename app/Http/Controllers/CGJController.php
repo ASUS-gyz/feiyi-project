@@ -15,6 +15,7 @@ use App\Models\EventSchedule;
 use App\Services\AuthService;
 use App\Support\JWT;
 use App\Support\Result;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -766,93 +767,27 @@ class CGJController extends Controller
 
     /**
      * 生成捐赠证书 PDF
+     *
+     * dompdf 渲染 HTML 模板；dompdf 不自动扫描字体目录，运行时显式登记
+     * 库内中文字体（storage/fonts/simhei.ttf），开启子集化后仅嵌入用到的字形。
      */
     private function generateDonationCertificatePdf(Donation $donation): string
     {
-        $donationNo = $donation->donation_no;
         $nickname = $donation->is_anonymous ? '匿名爱心人士' : ($donation->user->nickname ?: $donation->user->username);
-        $amount = number_format($donation->amount, 2);
-        $projectTitle = $donation->project_title;
-        $date = $donation->created_at->format('Y年m月d日');
 
-        // 使用 PDF 内容块构建
-        $objects = [];
-        $objectCount = 0;
+        $pdf = Pdf::setOption('enable_font_subsetting', true)->loadView('certificates.donation', [
+            'donationNo'   => $donation->donation_no,
+            'nickname'     => $nickname,
+            'amount'       => number_format($donation->amount, 2),
+            'projectTitle' => $donation->project_title,
+            'date'         => $donation->created_at->format('Y年m月d日'),
+        ]);
 
-        // 1. Catalog
-        $objects[++$objectCount] = "<< /Type /Catalog /Pages 2 0 R >>";
-        // 2. Pages
-        $objects[++$objectCount] = "<< /Type /Pages /Kids [3 0 R] /Count 1 >>";
-        // 3. Page
-        $objects[++$objectCount] = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Contents 4 0 R /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> >>";
+        $pdf->getDomPDF()->getFontMetrics()->registerFont(
+            ['family' => 'simhei', 'style' => 'normal', 'weight' => 'normal'],
+            storage_path('fonts/simhei.ttf')
+        );
 
-        // 4. Content stream
-        $content = $this->buildCertificateContent($donationNo, $nickname, $amount, $projectTitle, $date);
-        $contentLen = strlen($content);
-        $objects[++$objectCount] = "<< /Length {$contentLen} >>\nstream\n{$content}\nendstream";
-
-        // 5. Font - Helvetica-Bold for title
-        $objects[++$objectCount] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>";
-        // 6. Font - Helvetica for body
-        $objects[++$objectCount] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
-
-        $totalObjects = $objectCount;
-        $offsets = [];
-        $pdf = "%PDF-1.4\n";
-
-        // Write objects
-        for ($i = 1; $i <= $totalObjects; $i++) {
-            $offsets[$i] = strlen($pdf);
-            $pdf .= "{$i} 0 obj\n{$objects[$i]}\nendobj\n";
-        }
-
-        // Cross-reference table
-        $xrefOffset = strlen($pdf);
-        $pdf .= "xref\n0 " . ($totalObjects + 1) . "\n";
-        $pdf .= "0000000000 65535 f \n";
-        for ($i = 1; $i <= $totalObjects; $i++) {
-            $pdf .= sprintf("%010d 00000 n \n", $offsets[$i]);
-        }
-
-        // Trailer
-        $pdf .= "trailer\n<< /Size " . ($totalObjects + 1) . " /Root 1 0 R >>\n";
-        $pdf .= "startxref\n{$xrefOffset}\n%%EOF\n";
-
-        return $pdf;
-    }
-
-    /**
-     * 构建证书 PDF 页面内容
-     */
-    private function buildCertificateContent(
-        string $donationNo,
-        string $nickname,
-        string $amount,
-        string $projectTitle,
-        string $date
-    ): string {
-        $lines = [];
-
-        // 标题
-        $lines[] = "BT /F1 36 Tf 50 750 Td (\xE6\x8D\x90\xE8\xB5\xA0\xE8\xAF\x81\xE4\xB9\xA6) Tj ET";
-        // 装饰线
-        $lines[] = "BT 0.8 w 50 720 495 0 re S ET";
-        // 证书编号
-        $lines[] = "BT /F2 10 Tf 50 690 Td (\xE8\xAF\x81\xE4\xB9\xA6\xE7\xBC\x96\xE5\x8F\xB7\xEF\xBC\x9A{$donationNo}) Tj ET";
-        // 空行
-        // 正文
-        $lines[] = "BT /F2 16 Tf 50 640 Td (\xE6\x81\xAD\xE5\x96\x9C\xEF\xBC\x9A{$nickname}) Tj ET";
-        $lines[] = "BT /F2 14 Tf 50 600 Td (\xE6\x82\xA8\xE5\x90\x91\xE3\x80\x8C{$projectTitle}\xE3\x80\x8D\xE9\xA1\xB9\xE7\x9B\xAE\xE6\x8D\x90\xE8\xB5\xA0\xE4\xBA\x86) Tj ET";
-        $lines[] = "BT /F1 24 Tf 50 560 Td ({$amount}\xE5\x85\x83) Tj ET";
-        $lines[] = "BT /F2 14 Tf 50 520 Td (\xE6\x88\x90\xE4\xB8\xBA\xE4\xBA\x86\xE9\x9D\x9E\xE9\x81\x97\xE4\xBF\x9D\xE6\x8A\xA4\xE4\xB8\x8E\xE4\xBC\xA0\xE6\x89\xBF\xE7\x9A\x84\xE6\x94\xAF\xE6\x8C\x81\xE8\x80\x85\xE3\x80\x82) Tj ET";
-        $lines[] = "BT /F2 14 Tf 50 480 Td (\xE6\x88\x91\xE4\xBB\xAC\xE5\xB0\x86\xE4\xB8\x8E\xE6\x82\xA8\xE4\xB8\x80\xE8\xB5\xB7\xEF\xBC\x8C\xE5\x85\xB1\xE5\x90\x8C\xE5\xAE\x88\xE6\x8A\xA4\xE8\xBF\x99\xE4\xBB\xBD\xE5\x8D\x83\xE5\xB9\xB4\xE5\xB7\xA5\xE8\x89\xBA\xE3\x80\x82) Tj ET";
-        // 日期
-        $lines[] = "BT /F2 12 Tf 50 420 Td (\xE9\xA2\x81\xE5\x8F\x91\xE6\x97\xA5\xE6\x9C\x9F\xEF\xBC\x9A{$date}) Tj ET";
-        // 机构名
-        $lines[] = "BT /F2 12 Tf 350 380 Td (\xE7\x84\x99\xE7\xAE\x94\xE5\x87\x9D\xE8\x89\xBA\xC2\xB7\xE9\x9D\x9E\xE9\x81\x97\xE4\xBF\x9D\xE6\x8A\xA4\xE6\x9C\xBA\xE6\x9E\x84) Tj ET";
-        // 底部
-        $lines[] = "BT /F2 8 Tf 50 50 Td (\xE6\x9C\xAC\xE8\xAF\x81\xE4\xB9\xA6\xE4\xBB\x85\xE4\xB8\xBA\xE6\x84\x9F\xE8\xB0\xA2\xE6\x82\xA8\xE7\x9A\x84\xE6\x8D\x90\xE8\xB5\xA0\xEF\xBC\x8C\xE4\xB8\x8D\xE4\xBD\x9C\xE4\xB8\xBA\xE4\xBB\xBB\xE4\xBD\x95\xE6\x94\xB6\xE6\x8D\xAE\xE6\x88\x96\xE7\xA8\x8E\xE5\x8A\xA1\xE5\x87\xAD\xE8\xAF\x81\xE3\x80\x82) Tj ET";
-
-        return implode("\n", $lines);
+        return $pdf->output();
     }
 }
