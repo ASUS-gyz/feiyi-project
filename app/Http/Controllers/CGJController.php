@@ -14,7 +14,9 @@ use App\Models\Event;
 use App\Models\EventSchedule;
 use App\Services\AuthService;
 use App\Support\Result;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -154,6 +156,50 @@ class CGJController extends Controller
     private const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp'];
 
     /**
+     * 允许的图片扩展名白名单（与 MIME 内容嗅探双重校验）
+     */
+    private const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp'];
+
+    /**
+     * 校验上传图片的扩展名白名单、MIME 内容与大小
+     *
+     * 扩展名白名单在前：恶意扩展名（如 .php）确定性拒绝，不依赖内容嗅探。
+     * 校验通过返回 null，失败返回对应的错误响应。
+     */
+    private function validateImageUpload(UploadedFile $file, int $maxSize, string $sizeMessage): ?JsonResponse
+    {
+        $extension = strtolower($file->getClientOriginalExtension());
+        if (!in_array($extension, self::ALLOWED_EXTENSIONS, true)) {
+            return Result::error(ResponseCode::FILE_FORMAT_ERROR, '仅支持 jpg/png/webp 格式的图片');
+        }
+
+        // MIME 内容嗅探：拦截合法扩展名夹带非图片内容的文件
+        if (!in_array($file->getMimeType(), self::ALLOWED_MIMES, true)) {
+            return Result::error(ResponseCode::PARAM_INVALID, '仅支持 jpg/png/webp 格式的图片');
+        }
+
+        if ($file->getSize() > $maxSize) {
+            return Result::error(ResponseCode::FILE_TOO_LARGE, $sizeMessage);
+        }
+
+        return null;
+    }
+
+    /**
+     * 服务端生成存储文件名：扩展名由已验证的 MIME 内容推导，客户端文件名不参与存储路径
+     */
+    private function generateImageFilename(UploadedFile $file): string
+    {
+        $extension = match ($file->getMimeType()) {
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+            default => 'jpg',
+        };
+
+        return (string) Str::uuid() . '.' . $extension;
+    }
+
+    /**
      * 上传头像
      *
      * POST /api/upload/avatar
@@ -174,20 +220,13 @@ class CGJController extends Controller
         /** @var \Illuminate\Http\UploadedFile|null $file */
         $file = $request->file('file');
 
-        // 验证文件类型
-        if (!in_array($file->getMimeType(), self::ALLOWED_MIMES)) {
-            return Result::error(ResponseCode::PARAM_INVALID, '仅支持 jpg/png/webp 格式的图片');
+        // 验证文件类型与大小（≤2MB）
+        if ($error = $this->validateImageUpload($file, 2 * 1024 * 1024, '头像大小不能超过 2MB')) {
+            return $error;
         }
 
-        // 验证文件大小 (≤2MB)
-        $maxSize = 2 * 1024 * 1024; // 2MB
-        if ($file->getSize() > $maxSize) {
-            return Result::error(ResponseCode::FILE_TOO_LARGE, '头像大小不能超过 2MB');
-        }
-
-        // 生成唯一文件名
-        $extension = $file->getClientOriginalExtension();
-        $filename = time() . '_' . Str::random(10) . '.' . $extension;
+        // 服务端生成文件名（客户端文件名不参与存储路径）
+        $filename = $this->generateImageFilename($file);
 
         // 存储到 storage/app/public/avatars/
         $path = $file->storeAs('avatars', $filename, 'public');
@@ -217,6 +256,13 @@ class CGJController extends Controller
      */
     public function uploadPostImage(Request $request)
     {
+        /** @var \App\Models\User|null $user */
+        $user = $request->user();
+
+        if (!$user) {
+            return Result::error(ResponseCode::UNAUTHORIZED);
+        }
+
         if (!$request->hasFile('file')) {
             return Result::error(ResponseCode::PARAM_MISSING, '请选择要上传的文件');
         }
@@ -230,20 +276,13 @@ class CGJController extends Controller
         /** @var \Illuminate\Http\UploadedFile|null $file */
         $file = $request->file('file');
 
-        // 验证文件类型
-        if (!in_array($file->getMimeType(), self::ALLOWED_MIMES)) {
-            return Result::error(ResponseCode::PARAM_INVALID, '仅支持 jpg/png/webp 格式的图片');
+        // 验证文件类型与大小（≤5MB）
+        if ($error = $this->validateImageUpload($file, 5 * 1024 * 1024, '图片大小不能超过 5MB')) {
+            return $error;
         }
 
-        // 验证文件大小 (≤5MB)
-        $maxSize = 5 * 1024 * 1024; // 5MB
-        if ($file->getSize() > $maxSize) {
-            return Result::error(ResponseCode::FILE_TOO_LARGE, '图片大小不能超过 5MB');
-        }
-
-        // 生成唯一文件名
-        $extension = $file->getClientOriginalExtension();
-        $filename = time() . '_' . Str::random(10) . '.' . $extension;
+        // 服务端生成文件名（客户端文件名不参与存储路径）
+        $filename = $this->generateImageFilename($file);
 
         // 存储到 storage/app/public/posts/
         $path = $file->storeAs('posts', $filename, 'public');

@@ -77,7 +77,7 @@ class WLJController extends Controller
     /** POST /api/comments */
     public function commentCreate(WLJRequest $request): JsonResponse
     {
-        return Result::success('评论成功', $this->service->createComment($this->commentUser(), $request->validated()));
+        return Result::success('评论成功', $this->service->createComment($this->authUser(), $request->validated()));
     }
 
     /** PUT /api/comments/{id} */
@@ -97,7 +97,7 @@ class WLJController extends Controller
     /** POST /api/comments/{id}/like */
     public function commentLike(int $id): JsonResponse
     {
-        $count = $this->service->likeComment($id, $this->commentUser());
+        $count = $this->service->likeComment($id, $this->authUser());
 
         return Result::success('点赞成功', $count);
     }
@@ -105,7 +105,7 @@ class WLJController extends Controller
     /** DELETE /api/comments/{id}/like */
     public function commentUnlike(int $id): JsonResponse
     {
-        $count = $this->service->unlikeComment($id, $this->commentUser());
+        $count = $this->service->unlikeComment($id, $this->authUser());
 
         return Result::success('取消点赞成功', $count);
     }
@@ -219,24 +219,6 @@ class WLJController extends Controller
         $user = request()->user();
         if (!$user) {
             throw new BusinessException(ResponseCode::UNAUTHORIZED);
-        }
-
-        return $user;
-    }
-
-    /**
-     * 解析评论模块用户（User-ID 头 / 查询参数，无需 JWT）
-     */
-    private function commentUser(): User
-    {
-        $userId = request()->header('User-ID') ?? request()->query('User-ID');
-        if (!$userId) {
-            throw new BusinessException(ResponseCode::UNAUTHORIZED, '缺少 User-ID');
-        }
-
-        $user = User::find($userId);
-        if (!$user || $user->is_deleted) {
-            throw new BusinessException(ResponseCode::UNAUTHORIZED, '用户不存在或已被禁用');
         }
 
         return $user;

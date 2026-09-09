@@ -7,8 +7,8 @@ use Illuminate\Support\Facades\Route;
 
 // 认证模块
 Route::prefix('auth')->group(function () {
-    Route::post('/register', [CGJController::class, 'register']);
-    Route::post('/login', [CGJController::class, 'login']);
+    Route::post('/register', [CGJController::class, 'register'])->middleware('throttle:auth-register');
+    Route::post('/login', [CGJController::class, 'login'])->middleware('throttle.login');
     Route::post('/logout', [CGJController::class, 'logout']);
     Route::get('/me', [CGJController::class, 'me'])->middleware('jwt.auth');
 });
@@ -21,8 +21,8 @@ Route::prefix('users')->middleware('jwt.auth')->group(function () {
 
 // 文件上传模块
 Route::prefix('upload')->group(function () {
-    Route::post('/avatar', [CGJController::class, 'uploadAvatar'])->middleware('jwt.auth');
-    Route::post('/post-image', [CGJController::class, 'uploadPostImage']);
+    Route::post('/avatar', [CGJController::class, 'uploadAvatar'])->middleware(['jwt.auth', 'throttle.user:upload']);
+    Route::post('/post-image', [CGJController::class, 'uploadPostImage'])->middleware(['jwt.auth', 'throttle.user:upload']);
 });
 
 // 传承基地模块
@@ -42,7 +42,7 @@ Route::prefix('events')->group(function () {
 // 捐赠支持模块
 Route::prefix('donations')->group(function () {
     Route::get('/projects', [CGJController::class, 'donationProjects']);
-    Route::post('/', [CGJController::class, 'createDonation'])->middleware('jwt.auth');
+    Route::post('/', [CGJController::class, 'createDonation'])->middleware(['jwt.auth', 'throttle.user:donation']);
     Route::get('/records', [CGJController::class, 'donationRecords'])->middleware('jwt.auth');
     Route::get('{id}/certificate', [CGJController::class, 'donationCertificate'])->middleware('jwt.auth')->whereNumber('id');
 });
@@ -50,7 +50,7 @@ Route::prefix('donations')->group(function () {
 //GYZ 模块
 // AI 智能问答
 Route::prefix('chat')->group(function () {
-    Route::post('message',               [GYZController::class, 'chatMessage'])->middleware('jwt.optional');
+    Route::post('message',               [GYZController::class, 'chatMessage'])->middleware(['jwt.optional', 'throttle.user:chat']);
     Route::get('test',                   [GYZController::class, 'chatTest']);
     Route::get('health',                 [GYZController::class, 'chatHealth']);
     Route::get('welcome',                [GYZController::class, 'chatWelcome']);
@@ -111,11 +111,11 @@ Route::prefix('posts')->group(function () {
 Route::prefix('comments')->group(function () {
     Route::get('post/{postId}',   [WLJController::class, 'commentByPost'])->name('comments.byPost')->whereNumber('postId');
     Route::get('/',               [WLJController::class, 'commentList'])->name('comments.list');
-    Route::post('/',              [WLJController::class, 'commentCreate'])->name('comments.create');
+    Route::post('/',              [WLJController::class, 'commentCreate'])->middleware('jwt.auth')->name('comments.create');
     Route::put('{id}',            [WLJController::class, 'commentUpdate'])->middleware('jwt.auth')->name('comments.update')->whereNumber('id');
     Route::delete('{id}',         [WLJController::class, 'commentDelete'])->middleware('jwt.auth')->name('comments.delete')->whereNumber('id');
-    Route::post('{id}/like',      [WLJController::class, 'commentLike'])->name('comments.like')->whereNumber('id');
-    Route::delete('{id}/like',    [WLJController::class, 'commentUnlike'])->name('comments.unlike')->whereNumber('id');
+    Route::post('{id}/like',      [WLJController::class, 'commentLike'])->middleware('jwt.auth')->name('comments.like')->whereNumber('id');
+    Route::delete('{id}/like',    [WLJController::class, 'commentUnlike'])->middleware('jwt.auth')->name('comments.unlike')->whereNumber('id');
 });
 
 // 传世名作模块
