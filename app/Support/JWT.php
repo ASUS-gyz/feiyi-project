@@ -45,46 +45,48 @@ class JWT
     /**
      * 解析并验证 JWT Token
      *
+     * 验签算法完全由服务端配置决定，token 头中的 alg 声明不参与验签决策，
+     * 算法混淆攻击无法实施。
+     *
      * @param string $token JWT token
      * @return array 解码后的 payload
      *
-     * @throws RuntimeException 当 token 无效或过期时
+     * @throws JwtException Token 无效（UNAUTHORIZED）或已过期（TOKEN_EXPIRED）
      */
     public static function decode(string $token): array
     {
         $segments = explode('.', $token);
         if (count($segments) !== 3) {
-            throw new RuntimeException('Token 格式错误');
+            throw JwtException::invalid('Token 格式错误');
         }
 
         [$headB64, $payloadB64, $sigB64] = $segments;
 
-        // 解码 header
+        // 解码 header（仅校验结构，alg 声明不采信）
         $header = self::jsonDecode(self::base64UrlDecode($headB64));
-        if ($header === null) {
-            throw new RuntimeException('Token Header 解析失败');
+        if (!is_array($header)) {
+            throw JwtException::invalid('Token Header 解析失败');
         }
 
-        // 验证签名
+        // 验证签名（使用服务端钉死的算法）
         $signingInput = "$headB64.$payloadB64";
         $signature = self::base64UrlDecode($sigB64);
 
-        $algorithm = $header['alg'] ?? 'none';
-        $expected = self::sign($signingInput, config('jwt.secret'), $algorithm);
+        $expected = self::sign($signingInput, config('jwt.secret'), config('jwt.algorithm', 'HS256'));
 
         if (!hash_equals($expected, $signature)) {
-            throw new RuntimeException('Token 签名验证失败');
+            throw JwtException::invalid('Token 签名验证失败');
         }
 
         // 解码 payload
         $payload = self::jsonDecode(self::base64UrlDecode($payloadB64));
-        if ($payload === null) {
-            throw new RuntimeException('Token Payload 解析失败');
+        if (!is_array($payload)) {
+            throw JwtException::invalid('Token Payload 解析失败');
         }
 
         // 验证过期时间
         if (isset($payload['exp']) && $payload['exp'] < time()) {
-            throw new RuntimeException('Token 已过期');
+            throw JwtException::expired();
         }
 
         return $payload;
@@ -143,7 +145,7 @@ class JWT
     private static function jsonDecode(string $data): ?array
     {
         $result = json_decode($data, true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
+        if (json_last_error() !== JSON_ERROR_NONE || !is_array($result)) {
             return null;
         }
         return $result;
