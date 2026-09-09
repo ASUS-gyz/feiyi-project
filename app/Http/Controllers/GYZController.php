@@ -194,25 +194,12 @@ class GYZController extends Controller
     // ==================================================================
 
     /** POST /api/chat/message */
-    public function chatMessage(\Illuminate\Http\Request $request): JsonResponse
+    public function chatMessage(GYZRequest $request): JsonResponse
     {
-        $data = [
-            'message'     => $request->input('message', ''),
-            'session_id'  => $request->input('sessionId', ''),
-            'max_tokens'  => $request->input('maxTokens', 512),
-            'temperature' => $request->input('temperature', 0.6),
-        ];
         $userId = request()->user()?->id;
-        $result = $this->service->sendChatMessage($data, $userId);
-        return response()->json($result);
-    }
+        $result = $this->service->sendChatMessage($request->validated(), $userId);
 
-    /** GET /api/chat/test */
-    public function chatTest(\Illuminate\Http\Request $request): JsonResponse
-    {
-        $message = $request->query('message', '你好');
-        $result = $this->service->sendChatMessage(['message' => $message], null);
-        return response()->json($result);
+        return Result::success('回复成功', $result);
     }
 
     /** GET /api/chat/health */

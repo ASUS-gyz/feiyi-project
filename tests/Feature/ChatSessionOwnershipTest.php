@@ -35,15 +35,13 @@ class ChatSessionOwnershipTest extends TestCase
 
     /**
      * 让指定用户开启一个会话，返回 sessionId
-     *
-     * 聊天端点当前返回自有结构而非统一信封（票 #31 统一修正），此处按其结构断言
      */
     private function createSession(string $token, string $message = '会话起始消息'): string
     {
         $response = $this->withToken($token)->postJson('/api/chat/message', ['message' => $message]);
-        $response->assertStatus(200);
+        $this->assertSuccessEnvelope($response);
 
-        $sessionId = $response->json('sessionId');
+        $sessionId = $response->json('data.sessionId');
         $this->assertNotEmpty($sessionId);
 
         return $sessionId;
@@ -125,8 +123,9 @@ class ChatSessionOwnershipTest extends TestCase
             'message' => '第二条消息',
             'sessionId' => $sessionId,
         ]);
-        $continue->assertStatus(200);
-        $this->assertSame('（测试桩回复）', $continue->json('aiResponse'));
+        $this->assertSuccessEnvelope($continue);
+        $this->assertSame('（测试桩回复）', $continue->json('data.aiResponse'));
+        $this->assertSame($sessionId, $continue->json('data.sessionId'));
         $this->assertSame(4, ChatMessage::where('session_id', $sessionId)->count(), '两轮对话应产生 4 条消息');
 
         // 读取自己的会话
