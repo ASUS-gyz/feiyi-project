@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\User;
 
+use App\Support\TextSanitizer;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -13,6 +14,24 @@ class UpdateProfileRequest extends FormRequest
     public function authorize(): bool
     {
         return true;
+    }
+
+    /**
+     * 验证前净化自由文本资料字段（存储型 XSS 写侧防御，先净化后验长）
+     */
+    public function prepareForValidation(): void
+    {
+        $input = $this->all();
+        $cleaned = false;
+        foreach (['nickname', 'bio', 'region'] as $field) {
+            if (array_key_exists($field, $input)) {
+                $input[$field] = TextSanitizer::clean($input[$field]);
+                $cleaned = true;
+            }
+        }
+        if ($cleaned) {
+            $this->merge($input);
+        }
     }
 
     /**

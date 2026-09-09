@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Support\TextSanitizer;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 
@@ -15,7 +16,8 @@ class GYZRequest extends FormRequest
 
     /**
      * 校验前归一化入参：查询参数的布尔值以字符串传入（如 isRead=true），
-     * 需先转成真正的布尔，否则 boolean 校验规则无法识别。
+     * 需先转成真正的布尔，否则 boolean 校验规则无法识别；
+     * 同时对自由文本写点做净化（存储型 XSS 写侧防御，先净化后验长）。
      */
     protected function prepareForValidation(): void
     {
@@ -24,6 +26,28 @@ class GYZRequest extends FormRequest
                 'isRead' => filter_var($this->input('isRead'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
             ]);
         }
+
+        $fields = match ($this->getRouteAction()) {
+            // 游戏成绩元数据 JSON 内的字符串值递归净化
+            'games.scores.submit' => ['metadata' => 'deep'],
+            // 商城订单收货信息与备注
+            'shop.orders.create'  => ['address' => 'plain', 'contactName' => 'plain', 'remark' => 'plain'],
+            default => [],
+        };
+
+        if ($fields === []) {
+            return;
+        }
+
+        $input = $this->all();
+        foreach ($fields as $field => $mode) {
+            if (array_key_exists($field, $input)) {
+                $input[$field] = $mode === 'deep'
+                    ? TextSanitizer::cleanDeep($input[$field])
+                    : TextSanitizer::clean($input[$field]);
+            }
+        }
+        $this->merge($input);
     }
 
     public function rules(): array

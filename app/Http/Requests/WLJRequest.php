@@ -22,6 +22,7 @@ class WLJRequest extends FormRequest
         $fields = match ($this->route()?->getName()) {
             'posts.create', 'posts.update' => ['title', 'content'],
             'comments.create', 'comments.update' => ['content'],
+            'cooperations.submit' => ['title', 'description', 'authorName'],
             default => [],
         };
 

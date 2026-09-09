@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Support\TextSanitizer;
 use Illuminate\Foundation\Http\FormRequest;
 
 class RegisterRequest extends FormRequest
@@ -12,6 +13,16 @@ class RegisterRequest extends FormRequest
     public function authorize(): bool
     {
         return true;
+    }
+
+    /**
+     * 验证前净化昵称（存储型 XSS 写侧防御，先净化后验长）
+     */
+    public function prepareForValidation(): void
+    {
+        if ($this->has('nickname')) {
+            $this->merge(['nickname' => TextSanitizer::clean($this->input('nickname'))]);
+        }
     }
 
     /**
