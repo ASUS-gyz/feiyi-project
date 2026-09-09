@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Support\TextSanitizer;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 
@@ -11,6 +12,30 @@ class WLJRequest extends FormRequest
     {
         // 公开接口无需鉴权，已登录接口由 jwt.auth 中间件处理
         return true;
+    }
+
+    /**
+     * 验证前净化自由文本：先净化后验长，杜绝标签垫长绕过（存储型 XSS 写侧防御）
+     */
+    public function prepareForValidation(): void
+    {
+        $fields = match ($this->route()?->getName()) {
+            'posts.create', 'posts.update' => ['title', 'content'],
+            'comments.create', 'comments.update' => ['content'],
+            default => [],
+        };
+
+        if ($fields === []) {
+            return;
+        }
+
+        $input = $this->all();
+        foreach ($fields as $field) {
+            if (array_key_exists($field, $input)) {
+                $input[$field] = TextSanitizer::clean($input[$field]);
+            }
+        }
+        $this->merge($input);
     }
 
     public function rules(): array
