@@ -960,18 +960,23 @@ class GYZService
                 'last_message' => Str::limit($message, 100),
             ]);
         } else {
-            $session = ChatSession::active()->where('session_id', $sessionId)->first();
+            // 会话归属校验：登录用户仅能续聊自己的会话，游客仅能续聊无归属会话；
+            // 他人会话与不存在会话一律 30001（响应完全一致，防会话 ID 枚举探测），
+            // 且在写入任何消息之前拒绝
+            $session = ChatSession::active()
+                ->where('session_id', $sessionId)
+                ->when(
+                    $userId !== null,
+                    fn ($q) => $q->where('user_id', $userId),
+                    fn ($q) => $q->whereNull('user_id')
+                )
+                ->first();
+
             if (! $session) {
-                $sessionId = ChatSession::generateSessionId();
-                ChatSession::create([
-                    'session_id'   => $sessionId,
-                    'user_id'      => $userId,
-                    'title'        => Str::limit($message, 50),
-                    'last_message' => Str::limit($message, 100),
-                ]);
-            } else {
-                $session->update(['last_message' => Str::limit($message, 100), 'updated_at' => now()]);
+                throw new BusinessException(ResponseCode::DATA_NOT_FOUND, '会话不存在');
             }
+
+            $session->update(['last_message' => Str::limit($message, 100), 'updated_at' => now()]);
         }
 
         // 获取历史消息
@@ -1189,8 +1194,9 @@ PROMPT;
             throw new BusinessException(ResponseCode::DATA_NOT_FOUND, '会话不存在');
         }
 
-        // 软删除会话和消息
-        $session->update(['is_deleted' => true, 'deleted_at' => now()]);
+        // 软删除会话和消息（is_deleted/deleted_at 不在模型 fillable 内，
+        // 须走构建器更新，Eloquent update 会静默丢弃非 fillable 字段）
+        ChatSession::where('id', $session->id)->update(['is_deleted' => true, 'deleted_at' => now()]);
         ChatMessage::where('session_id', $sessionId)->update([
             'is_deleted' => true, 'deleted_at' => now(),
         ]);
