@@ -32,6 +32,8 @@ class GYZRequest extends FormRequest
             'games.scores.submit' => ['metadata' => 'deep'],
             // 商城订单收货信息与备注
             'shop.orders.create'  => ['address' => 'plain', 'contactName' => 'plain', 'remark' => 'plain'],
+            // 聊天用户消息
+            'chat.message'        => ['message' => 'plain'],
             default => [],
         };
 
