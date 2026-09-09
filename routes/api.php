@@ -21,8 +21,8 @@ Route::prefix('users')->middleware('jwt.auth')->group(function () {
 
 // 文件上传模块
 Route::prefix('upload')->group(function () {
-    Route::post('/avatar', [CGJController::class, 'uploadAvatar'])->middleware('jwt.auth');
-    Route::post('/post-image', [CGJController::class, 'uploadPostImage']);
+    Route::post('/avatar', [CGJController::class, 'uploadAvatar'])->middleware(['jwt.auth', 'throttle:upload']);
+    Route::post('/post-image', [CGJController::class, 'uploadPostImage'])->middleware(['jwt.auth', 'throttle:upload']);
 });
 
 // 传承基地模块
