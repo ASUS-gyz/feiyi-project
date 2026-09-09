@@ -11,6 +11,7 @@ use App\Models\CooperationSubmission;
 use App\Models\Favorite;
 use App\Models\Masterpiece;
 use App\Models\MasterpieceLike;
+use App\Models\Notification;
 use App\Models\Post;
 use App\Models\PostLike;
 use App\Models\User;
@@ -244,6 +245,7 @@ class WLJService
             throw new BusinessException(ResponseCode::DATA_NOT_FOUND, '帖子不存在');
         }
 
+        $parent = null;
         if ($parentId) {
             $parent = Comment::active()->where('id', $parentId)->where('post_id', $postId)->first();
             if (!$parent) {
@@ -251,7 +253,7 @@ class WLJService
             }
         }
 
-        $comment = DB::transaction(function () use ($user, $postId, $parentId, $data, $post) {
+        $comment = DB::transaction(function () use ($user, $postId, $parentId, $data, $post, $parent) {
             $comment = Comment::create([
                 'user_id'   => $user->id,
                 'post_id'   => $postId,
@@ -264,6 +266,17 @@ class WLJService
             $post->increment('comment_count');
             if ($parentId) {
                 Comment::where('id', $parentId)->increment('reply_count');
+            }
+
+            // 通知父楼作者（自我回复不通知；与主操作同事务，发生了就查得到）
+            if ($parent && $parent->user_id !== $user->id) {
+                Notification::create([
+                    'user_id'    => $parent->user_id,
+                    'type'       => 'NOTIFY_COMMENT_REPLY',
+                    'title'      => '评论收到新回复',
+                    'message'    => '你的评论收到了新的回复',
+                    'related_id' => $comment->id,
+                ]);
             }
 
             return $comment;
@@ -363,6 +376,21 @@ class WLJService
             return DB::transaction(function () use ($comment, $user, $commentId): int {
                 CommentLike::create(['user_id' => $user->id, 'comment_id' => $commentId]);
                 $comment->increment('like_count');
+
+                // 通知评论作者（自我点赞不通知；同条评论只在首次点赞时写，避免反复点赞堆积）
+                if ($comment->user_id !== $user->id
+                    && ! Notification::where('user_id', $comment->user_id)
+                        ->where('type', 'NOTIFY_LIKE')
+                        ->where('related_id', $commentId)
+                        ->exists()) {
+                    Notification::create([
+                        'user_id'    => $comment->user_id,
+                        'type'       => 'NOTIFY_LIKE',
+                        'title'      => '评论收到新点赞',
+                        'message'    => '你的评论收到了新的点赞',
+                        'related_id' => $commentId,
+                    ]);
+                }
 
                 return (int) $comment->fresh()->like_count;
             });
