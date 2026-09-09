@@ -42,6 +42,12 @@ class JwtMiddleware
             return Result::error(ResponseCode::UNAUTHORIZED, '用户不存在或已被禁用');
         }
 
+        // 改密失效：token 签发时间不晚于最近一次改密时间 → 按登录过期处理
+        // （改密响应中续期 token 的 iat 取改密秒 +1，不受此判定影响）
+        if ($user->pwd_changed_at !== null && (int) ($payload['iat'] ?? 0) <= $user->pwd_changed_at->getTimestamp()) {
+            return Result::error(ResponseCode::TOKEN_EXPIRED);
+        }
+
         // 将用户绑定到请求
         $request->setUserResolver(function () use ($user) {
             return $user;

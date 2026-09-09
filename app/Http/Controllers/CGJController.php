@@ -13,6 +13,7 @@ use App\Models\DonationProject;
 use App\Models\Event;
 use App\Models\EventSchedule;
 use App\Services\AuthService;
+use App\Support\JWT;
 use App\Support\Result;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -142,10 +143,16 @@ class CGJController extends Controller
         }
 
         // 更新密码（User 模型的 casts 已配置 password => hashed，自动哈希）
+        $changedAt = now();
         $user->password = $validated['newPassword'];
+        $user->pwd_changed_at = $changedAt;
         $user->save();
 
-        return Result::success('密码修改成功');
+        // 改密使此前签发的所有 token 失效；同时签发新 token，当前设备无需重新登录。
+        // iat 取改密秒 +1，确保续期 token 不被改密失效判定拦截
+        $token = JWT::encode(['sub' => $user->id, 'iat' => $changedAt->getTimestamp() + 1]);
+
+        return Result::success('密码修改成功', ['token' => $token]);
     }
 
     // ==================== 文件上传模块 ====================
