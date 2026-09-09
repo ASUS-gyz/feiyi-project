@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Enums\ResponseCode;
-use Illuminate\Support\Facades\Cache;
 use Tests\Concerns\InteractsWithApi;
 use Tests\TestCase;
 
@@ -15,14 +14,6 @@ use Tests\TestCase;
 class RateLimitingTest extends TestCase
 {
     use InteractsWithApi;
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        // 限流计数在数组缓存中跨测试共享（同进程），逐测试清零保证确定性
-        Cache::clear();
-    }
 
     /**
      * 阈值内的正常请求完全不受影响

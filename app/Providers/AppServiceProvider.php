@@ -43,14 +43,6 @@ class AppServiceProvider extends ServiceProvider
                 ->by($request->ip());
         });
 
-        // 登录：IP + 账号组合（撞库/爆破按来源与目标双重约束）
-        RateLimiter::for('auth-login', function (Request $request) {
-            $key = $request->ip().'|'.(string) $request->input('username');
-
-            return new Limit('', (int) config('throttle.auth-login.max'), (int) config('throttle.auth-login.decay'))
-                ->by($key);
-        });
-
         // 注册：每 IP（防脚本批量造号）
         RateLimiter::for('auth-register', function (Request $request) {
             return new Limit('', (int) config('throttle.auth-register.max'), (int) config('throttle.auth-register.decay'))

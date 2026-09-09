@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Enums\ResponseCode;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Tests\Concerns\InteractsWithApi;
 use Tests\TestCase;
@@ -27,7 +26,6 @@ class UploadSecurityTest extends TestCase
     {
         parent::setUp();
 
-        Cache::clear();
         Storage::fake('public');
     }
 

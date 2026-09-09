@@ -7,8 +7,8 @@ use Illuminate\Support\Facades\Route;
 
 // 认证模块
 Route::prefix('auth')->group(function () {
-    Route::post('/register', [CGJController::class, 'register']);
-    Route::post('/login', [CGJController::class, 'login']);
+    Route::post('/register', [CGJController::class, 'register'])->middleware('throttle:auth-register');
+    Route::post('/login', [CGJController::class, 'login'])->middleware('throttle.login');
     Route::post('/logout', [CGJController::class, 'logout']);
     Route::get('/me', [CGJController::class, 'me'])->middleware('jwt.auth');
 });
@@ -42,7 +42,7 @@ Route::prefix('events')->group(function () {
 // 捐赠支持模块
 Route::prefix('donations')->group(function () {
     Route::get('/projects', [CGJController::class, 'donationProjects']);
-    Route::post('/', [CGJController::class, 'createDonation'])->middleware('jwt.auth');
+    Route::post('/', [CGJController::class, 'createDonation'])->middleware(['jwt.auth', 'throttle:donation']);
     Route::get('/records', [CGJController::class, 'donationRecords'])->middleware('jwt.auth');
     Route::get('{id}/certificate', [CGJController::class, 'donationCertificate'])->middleware('jwt.auth')->whereNumber('id');
 });

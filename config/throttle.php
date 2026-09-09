@@ -14,10 +14,11 @@ return [
         'decay' => (int) env('THROTTLE_GLOBAL_DECAY', 60),
     ],
 
-    // 登录：IP + 账号组合
-    'auth-login' => [
+    // 登录：仅计失败尝试；账号维度防爆破，IP 维度防换号撞库（throttle.login 中间件读取）
+    'login' => [
         'max' => (int) env('THROTTLE_LOGIN_MAX', 5),
         'decay' => (int) env('THROTTLE_LOGIN_DECAY', 60),
+        'ip_max' => (int) env('THROTTLE_LOGIN_IP_MAX', 10),
     ],
 
     // 注册：每 IP
