@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Enums\ResponseCode;
 use App\Support\JWT;
+use App\Support\JwtException;
 use App\Support\Result;
 use Closure;
 use Illuminate\Http\Request;
@@ -26,20 +27,14 @@ class JwtMiddleware
 
         try {
             $payload = JWT::decode($token);
-        } catch (\RuntimeException $e) {
-            $message = $e->getMessage();
-
-            if ($message === 'Token 已过期') {
-                return Result::error(ResponseCode::TOKEN_EXPIRED);
-            }
-
-            return Result::error(ResponseCode::TOKEN_ERROR, $message);
+        } catch (JwtException $e) {
+            return Result::error($e->responseCode, $e->getMessage());
         }
 
         // 从数据库中加载用户
         $userId = $payload['sub'] ?? null;
         if (!$userId) {
-            return Result::error(ResponseCode::TOKEN_ERROR, 'Token 载荷无效');
+            return Result::error(ResponseCode::UNAUTHORIZED, 'Token 载荷无效');
         }
 
         $user = \App\Models\User::find($userId);
