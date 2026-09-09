@@ -231,6 +231,8 @@ class WLJService
 
     /**
      * 发布评论或回复
+     *
+     * 评论写入、帖子评论数、父楼回复数同事务提交，不出现半提交状态。
      */
     public function createComment(User $user, array $data): array
     {
@@ -249,19 +251,23 @@ class WLJService
             }
         }
 
-        $comment = Comment::create([
-            'user_id'   => $user->id,
-            'post_id'   => $postId,
-            'parent_id' => $parentId,
-            'content'   => $data['content'],
-            'status'    => 'COMMENT_NORMAL',
-        ]);
+        $comment = DB::transaction(function () use ($user, $postId, $parentId, $data, $post) {
+            $comment = Comment::create([
+                'user_id'   => $user->id,
+                'post_id'   => $postId,
+                'parent_id' => $parentId,
+                'content'   => $data['content'],
+                'status'    => 'COMMENT_NORMAL',
+            ]);
 
-        // 维护计数
-        $post->increment('comment_count');
-        if ($parentId) {
-            Comment::where('id', $parentId)->increment('reply_count');
-        }
+            // 维护计数（与评论写入同事务）
+            $post->increment('comment_count');
+            if ($parentId) {
+                Comment::where('id', $parentId)->increment('reply_count');
+            }
+
+            return $comment;
+        });
 
         $comment->load('user');
 
@@ -292,6 +298,9 @@ class WLJService
 
     /**
      * 删除评论（作者/管理员，软删除）
+     *
+     * 目标楼与其全部活跃子孙同事务软删（不留孤儿回复）；
+     * 帖子评论数按实际隐藏总数回减，目标楼是回复时父楼 reply_count 回减。
      */
     public function deleteComment(int $id, User $user): void
     {
@@ -305,18 +314,30 @@ class WLJService
             throw new BusinessException(ResponseCode::FORBIDDEN);
         }
 
-        $comment->is_deleted = true;
-        $comment->deleted_at = now();
-        $comment->save();
+        DB::transaction(function () use ($comment): void {
+            // 收集目标楼及其全部活跃子孙（防御多层嵌套）
+            $toDelete = collect([$comment->id]);
+            $frontier = collect([$comment->id]);
+            while ($frontier->isNotEmpty()) {
+                $children = Comment::active()->whereIn('parent_id', $frontier)->pluck('id');
+                $toDelete = $toDelete->merge($children);
+                $frontier = $children;
+            }
 
-        // 维护计数
-        $post = Post::find($comment->post_id);
-        if ($post && $post->comment_count > 0) {
-            $post->decrement('comment_count');
-        }
-        if ($comment->parent_id) {
-            Comment::where('id', $comment->parent_id)->where('reply_count', '>', 0)->decrement('reply_count');
-        }
+            // 批量软删（builder update，不经 fillable）
+            Comment::whereIn('id', $toDelete)->update(['is_deleted' => true, 'deleted_at' => now()]);
+
+            // 帖子评论数按实际隐藏总数回减
+            $post = Post::find($comment->post_id);
+            if ($post && $post->comment_count > 0) {
+                $post->decrement('comment_count', min($toDelete->count(), (int) $post->comment_count));
+            }
+
+            // 目标楼是回复：父楼 reply_count 回减
+            if ($comment->parent_id) {
+                Comment::where('id', $comment->parent_id)->where('reply_count', '>', 0)->decrement('reply_count');
+            }
+        });
     }
 
     /**
