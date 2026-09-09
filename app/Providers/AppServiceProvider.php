@@ -49,31 +49,8 @@ class AppServiceProvider extends ServiceProvider
                 ->by($request->ip());
         });
 
-        // 上传：登录按用户，未认证回退 IP
-        RateLimiter::for('upload', function (Request $request) {
-            $key = $request->user()?->id ? 'user:'.$request->user()->id : 'ip:'.$request->ip();
-
-            return new Limit('', (int) config('throttle.upload.max'), (int) config('throttle.upload.decay'))
-                ->by($key);
-        });
-
-        // AI 聊天：登录按账号、游客按 IP
-        RateLimiter::for('chat', function (Request $request) {
-            if ($request->user()?->id) {
-                return new Limit('', (int) config('throttle.chat.auth_max'), (int) config('throttle.chat.decay'))
-                    ->by('user:'.$request->user()->id);
-            }
-
-            return new Limit('', (int) config('throttle.chat.guest_max'), (int) config('throttle.chat.decay'))
-                ->by('ip:'.$request->ip());
-        });
-
-        // 捐赠创建：登录按用户，未认证回退 IP
-        RateLimiter::for('donation', function (Request $request) {
-            $key = $request->user()?->id ? 'user:'.$request->user()->id : 'ip:'.$request->ip();
-
-            return new Limit('', (int) config('throttle.donation.max'), (int) config('throttle.donation.decay'))
-                ->by($key);
-        });
+        // 上传 / AI 聊天 / 捐赠创建按身份限流（登录按用户、游客按 IP）
+        // 由 ThrottleUserOrIp 中间件实现：须在 jwt 中间件之后执行才能取到已绑定用户，
+        // 不能用框架 throttle 命名限流器（其默认优先级会先于 jwt 执行）
     }
 }

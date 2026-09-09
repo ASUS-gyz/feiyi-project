@@ -30,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'jwt.auth' => JwtMiddleware::class,
             'jwt.optional' => OptionalJwtMiddleware::class,
             'throttle.login' => \App\Http\Middleware\ThrottleFailedLogins::class,
+            'throttle.user' => \App\Http\Middleware\ThrottleUserOrIp::class,
         ]);
 
         // 全站 API 兜底限流（策略见 config/throttle.php 的 global）

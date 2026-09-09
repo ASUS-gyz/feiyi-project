@@ -21,8 +21,8 @@ Route::prefix('users')->middleware('jwt.auth')->group(function () {
 
 // 文件上传模块
 Route::prefix('upload')->group(function () {
-    Route::post('/avatar', [CGJController::class, 'uploadAvatar'])->middleware(['jwt.auth', 'throttle:upload']);
-    Route::post('/post-image', [CGJController::class, 'uploadPostImage'])->middleware(['jwt.auth', 'throttle:upload']);
+    Route::post('/avatar', [CGJController::class, 'uploadAvatar'])->middleware(['jwt.auth', 'throttle.user:upload']);
+    Route::post('/post-image', [CGJController::class, 'uploadPostImage'])->middleware(['jwt.auth', 'throttle.user:upload']);
 });
 
 // 传承基地模块
@@ -42,7 +42,7 @@ Route::prefix('events')->group(function () {
 // 捐赠支持模块
 Route::prefix('donations')->group(function () {
     Route::get('/projects', [CGJController::class, 'donationProjects']);
-    Route::post('/', [CGJController::class, 'createDonation'])->middleware(['jwt.auth', 'throttle:donation']);
+    Route::post('/', [CGJController::class, 'createDonation'])->middleware(['jwt.auth', 'throttle.user:donation']);
     Route::get('/records', [CGJController::class, 'donationRecords'])->middleware('jwt.auth');
     Route::get('{id}/certificate', [CGJController::class, 'donationCertificate'])->middleware('jwt.auth')->whereNumber('id');
 });
@@ -50,7 +50,7 @@ Route::prefix('donations')->group(function () {
 //GYZ 模块
 // AI 智能问答
 Route::prefix('chat')->group(function () {
-    Route::post('message',               [GYZController::class, 'chatMessage'])->middleware('jwt.optional');
+    Route::post('message',               [GYZController::class, 'chatMessage'])->middleware(['jwt.optional', 'throttle.user:chat']);
     Route::get('test',                   [GYZController::class, 'chatTest']);
     Route::get('health',                 [GYZController::class, 'chatHealth']);
     Route::get('welcome',                [GYZController::class, 'chatWelcome']);

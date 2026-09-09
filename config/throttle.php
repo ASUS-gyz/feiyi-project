@@ -33,7 +33,7 @@ return [
         'decay' => (int) env('THROTTLE_UPLOAD_DECAY', 60),
     ],
 
-    // AI 聊天：登录按账号、游客按 IP（路由侧需保证认证中间件先于 throttle 执行）
+    // AI 聊天：登录按账号、游客按 IP（throttle.user 中间件按身份取 key）
     'chat' => [
         'auth_max' => (int) env('THROTTLE_CHAT_AUTH_MAX', 10),
         'guest_max' => (int) env('THROTTLE_CHAT_GUEST_MAX', 3),
