@@ -15,6 +15,7 @@ use App\Models\EventSchedule;
 use App\Services\AuthService;
 use App\Support\JWT;
 use App\Support\Result;
+use App\Support\TextSanitizer;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -624,7 +625,8 @@ class CGJController extends Controller
         $projectId = $request->input('projectId');
         $amount = $request->input('amount');
         $isAnonymous = (bool) $request->input('isAnonymous', false);
-        $message = $request->input('message');
+        // 捐赠留言净化（存储型 XSS 写侧防御）
+        $message = TextSanitizer::clean($request->input('message'));
 
         // 验证参数
         if (!$projectId) {

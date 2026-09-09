@@ -14,6 +14,7 @@ use App\Models\ChatSession;
 use App\Models\ShopCategory;
 use App\Models\ShopOrder;
 use App\Models\ShopProduct;
+use App\Support\TextSanitizer;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -1064,7 +1065,7 @@ class GYZService
 
         if (empty($apiKey)) {
             // 没有 API key 时返回预设回复
-            return $this->getFallbackResponse($message);
+            return TextSanitizer::clean($this->getFallbackResponse($message));
         }
 
         $messages = [['role' => 'system', 'content' => $this->getSystemPrompt()]];
@@ -1094,7 +1095,8 @@ class GYZService
             throw new \RuntimeException('AI 服务返回错误: ' . $response->status());
         }
 
-        return $response->json('choices.0.message.content', '抱歉，未能获取到回复。');
+        // AI 回复属不可信第三方内容，入库与返回前净化（存储型 XSS 写侧防御）
+        return TextSanitizer::clean($response->json('choices.0.message.content', '抱歉，未能获取到回复。'));
     }
 
     /**

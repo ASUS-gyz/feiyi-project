@@ -25,4 +25,17 @@ class TextSanitizer
 
         return $value;
     }
+
+    /**
+     * 递归净化数组内的全部字符串值（如游戏成绩 metadata JSON），
+     * 数组键与非字符串值（数字、布尔、null）原样保留。
+     */
+    public static function cleanDeep(mixed $value): mixed
+    {
+        if (is_array($value)) {
+            return array_map(self::cleanDeep(...), $value);
+        }
+
+        return self::clean($value);
+    }
 }
