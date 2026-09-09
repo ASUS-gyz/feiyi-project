@@ -93,7 +93,7 @@ class CommentIdentityTest extends TestCase
     }
 
     /**
-     * 点赞/取消点赞以 token 用户身份记录，重复点赞与既有业务规则一致
+     * 点赞/取消点赞以 token 用户身份记录，重复操作幂等成功（票 #45 起的语义）
      */
     public function test_like_and_unlike_record_token_user_identity_with_business_rules(): void
     {
@@ -108,9 +108,12 @@ class CommentIdentityTest extends TestCase
         $this->assertSame($userId, (int) CommentLike::first()->user_id);
         $this->assertSame(1, (int) $comment->fresh()->like_count);
 
-        // 重复点赞 → 40009
+        // 重复点赞 → 幂等成功，不重复写入、计数不虚增
         $duplicate = $this->withToken($token)->postJson("/api/comments/{$comment->id}/like");
-        $this->assertErrorEnvelope($duplicate, ResponseCode::BUSINESS_DUPLICATE->value);
+        $this->assertSuccessEnvelope($duplicate);
+        $this->assertSame(1, (int) $duplicate->json('data'));
+        $this->assertSame(1, CommentLike::count());
+        $this->assertSame(1, (int) $comment->fresh()->like_count);
 
         // 取消点赞 → 记录删除、计数回落
         $unlike = $this->withToken($token)->deleteJson("/api/comments/{$comment->id}/like");
@@ -119,8 +122,10 @@ class CommentIdentityTest extends TestCase
         $this->assertSame(0, CommentLike::count());
         $this->assertSame(0, (int) $comment->fresh()->like_count);
 
-        // 未点赞再取消 → 40002
+        // 未点赞再取消 → 幂等成功，计数不变负
         $again = $this->withToken($token)->deleteJson("/api/comments/{$comment->id}/like");
-        $this->assertErrorEnvelope($again, ResponseCode::BUSINESS_INVALID_STATE->value);
+        $this->assertSuccessEnvelope($again);
+        $this->assertSame(0, (int) $again->json('data'));
+        $this->assertSame(0, (int) $comment->fresh()->like_count);
     }
 }

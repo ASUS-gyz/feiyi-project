@@ -14,6 +14,8 @@ use App\Models\MasterpieceLike;
 use App\Models\Post;
 use App\Models\PostLike;
 use App\Models\User;
+use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\DB;
 
 class WLJService
 {
@@ -319,6 +321,9 @@ class WLJService
 
     /**
      * 点赞评论，返回最新点赞总数
+     *
+     * 点赞写入与计数自增同事务提交；重复点赞幂等成功，
+     * 并发下由唯一索引兜底、冲突按幂等处理，计数只在真实写入后变化。
      */
     public function likeComment(int $commentId, User $user): int
     {
@@ -328,19 +333,28 @@ class WLJService
             throw new BusinessException(ResponseCode::DATA_NOT_FOUND, '评论不存在');
         }
 
-        $exists = CommentLike::where('user_id', $user->id)->where('comment_id', $commentId)->exists();
-        if ($exists) {
-            throw new BusinessException(ResponseCode::BUSINESS_DUPLICATE);
+        // 已点赞：幂等成功，直接返回当前计数
+        if (CommentLike::where('user_id', $user->id)->where('comment_id', $commentId)->exists()) {
+            return (int) $comment->fresh()->like_count;
         }
 
-        CommentLike::create(['user_id' => $user->id, 'comment_id' => $commentId]);
-        $comment->increment('like_count');
+        try {
+            return DB::transaction(function () use ($comment, $user, $commentId): int {
+                CommentLike::create(['user_id' => $user->id, 'comment_id' => $commentId]);
+                $comment->increment('like_count');
 
-        return (int) $comment->fresh()->like_count;
+                return (int) $comment->fresh()->like_count;
+            });
+        } catch (UniqueConstraintViolationException) {
+            // 并发重复点赞撞唯一索引：按幂等成功处理
+            return (int) $comment->fresh()->like_count;
+        }
     }
 
     /**
      * 取消点赞评论，返回最新点赞总数
+     *
+     * 未点赞时取消幂等成功（计数不变负）；删除与计数回减同事务提交。
      */
     public function unlikeComment(int $commentId, User $user): int
     {
@@ -352,13 +366,15 @@ class WLJService
 
         $like = CommentLike::where('user_id', $user->id)->where('comment_id', $commentId)->first();
         if (!$like) {
-            throw new BusinessException(ResponseCode::BUSINESS_INVALID_STATE);
+            return (int) $comment->fresh()->like_count;
         }
 
-        $like->delete();
-        if ($comment->like_count > 0) {
-            $comment->decrement('like_count');
-        }
+        DB::transaction(function () use ($like, $comment): void {
+            $like->delete();
+            if ((int) $comment->fresh()->like_count > 0) {
+                $comment->decrement('like_count');
+            }
+        });
 
         return (int) $comment->fresh()->like_count;
     }
@@ -440,6 +456,9 @@ class WLJService
 
     /**
      * 点赞名作，返回最新点赞总数
+     *
+     * 点赞写入与计数自增同事务提交；重复点赞幂等成功，
+     * 并发下由唯一索引兜底、冲突按幂等处理，计数只在真实写入后变化。
      */
     public function likeMasterpiece(int $id, User $user): int
     {
@@ -449,19 +468,28 @@ class WLJService
             throw new BusinessException(ResponseCode::DATA_NOT_FOUND, '名作不存在');
         }
 
-        $exists = MasterpieceLike::where('user_id', $user->id)->where('masterpiece_id', $id)->exists();
-        if ($exists) {
-            throw new BusinessException(ResponseCode::BUSINESS_DUPLICATE);
+        // 已点赞：幂等成功，直接返回当前计数
+        if (MasterpieceLike::where('user_id', $user->id)->where('masterpiece_id', $id)->exists()) {
+            return (int) $masterpiece->fresh()->like_count;
         }
 
-        MasterpieceLike::create(['user_id' => $user->id, 'masterpiece_id' => $id]);
-        $masterpiece->increment('like_count');
+        try {
+            return DB::transaction(function () use ($masterpiece, $user, $id): int {
+                MasterpieceLike::create(['user_id' => $user->id, 'masterpiece_id' => $id]);
+                $masterpiece->increment('like_count');
 
-        return (int) $masterpiece->fresh()->like_count;
+                return (int) $masterpiece->fresh()->like_count;
+            });
+        } catch (UniqueConstraintViolationException) {
+            // 并发重复点赞撞唯一索引：按幂等成功处理
+            return (int) $masterpiece->fresh()->like_count;
+        }
     }
 
     /**
      * 取消点赞名作，返回最新点赞总数
+     *
+     * 未点赞时取消幂等成功（计数不变负）；删除与计数回减同事务提交。
      */
     public function unlikeMasterpiece(int $id, User $user): int
     {
@@ -473,13 +501,15 @@ class WLJService
 
         $like = MasterpieceLike::where('user_id', $user->id)->where('masterpiece_id', $id)->first();
         if (!$like) {
-            throw new BusinessException(ResponseCode::BUSINESS_INVALID_STATE);
+            return (int) $masterpiece->fresh()->like_count;
         }
 
-        $like->delete();
-        if ($masterpiece->like_count > 0) {
-            $masterpiece->decrement('like_count');
-        }
+        DB::transaction(function () use ($like, $masterpiece): void {
+            $like->delete();
+            if ((int) $masterpiece->fresh()->like_count > 0) {
+                $masterpiece->decrement('like_count');
+            }
+        });
 
         return (int) $masterpiece->fresh()->like_count;
     }
