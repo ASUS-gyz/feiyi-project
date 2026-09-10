@@ -14,6 +14,7 @@ use App\Models\ChatSession;
 use App\Models\ShopCategory;
 use App\Models\ShopOrder;
 use App\Models\ShopProduct;
+use App\Support\Pagination;
 use App\Support\TextSanitizer;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -44,8 +45,7 @@ class GYZService
      */
     public function getProducts(array $params): array
     {
-        $page       = (int) ($params['page'] ?? 1);
-        $page_size  = min((int) ($params['page_size'] ?? 20), 100);
+        ['page' => $page, 'size' => $page_size] = Pagination::resolve($params);
         $category_id= $params['category_id'] ?? null;
         $keyword    = $params['keyword'] ?? null;
         $min_price  = $params['min_price'] ?? null;
@@ -198,8 +198,7 @@ class GYZService
      */
     public function getOrders(int $userId, array $params): array
     {
-        $page      = (int) ($params['page'] ?? 1);
-        $page_size = min((int) ($params['page_size'] ?? 20), 100);
+        ['page' => $page, 'size' => $page_size] = Pagination::resolve($params);
         $status    = $params['status'] ?? null;
 
         $query = ShopOrder::where('user_id', $userId);
@@ -250,8 +249,7 @@ class GYZService
      */
     public function getNotifications(int $userId, array $params): array
     {
-        $page      = (int) ($params['page'] ?? 1);
-        $page_size = min((int) ($params['page_size'] ?? 20), 100);
+        ['page' => $page, 'size' => $page_size] = Pagination::resolve($params);
         $is_read   = $params['is_read'] ?? null;
         $type      = $params['type'] ?? null;
 
@@ -653,8 +651,7 @@ class GYZService
      */
     public function getMyScores(int $userId, array $params): array
     {
-        $page      = (int) ($params['page'] ?? 1);
-        $page_size = min((int) ($params['page_size'] ?? 20), 100);
+        ['page' => $page, 'size' => $page_size] = Pagination::resolve($params);
         $game_type = $params['game_type'] ?? null;
         $level_id  = $params['level_id'] ?? null;
 
@@ -714,8 +711,7 @@ class GYZService
      */
     public function getLeaderboard(string $type, array $params): array
     {
-        $page       = (int) ($params['page'] ?? 1);
-        $page_size  = min((int) ($params['page_size'] ?? 20), 100);
+        ['page' => $page, 'size' => $page_size] = Pagination::resolve($params);
         $level_id   = $params['level_id'] ?? null;
         $difficulty = $params['difficulty'] ?? null;
         $period     = $params['period'] ?? 'all';
@@ -1139,8 +1135,7 @@ PROMPT;
      */
     public function getChatSessions(int $userId, array $params): array
     {
-        $page      = (int) ($params['page'] ?? 1);
-        $page_size = min((int) ($params['page_size'] ?? 20), 100);
+        ['page' => $page, 'size' => $page_size] = Pagination::resolve($params);
 
         $paginator = ChatSession::active()
             ->where('user_id', $userId)

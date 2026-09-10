@@ -14,6 +14,7 @@ use App\Models\Event;
 use App\Models\EventSchedule;
 use App\Services\AuthService;
 use App\Support\JWT;
+use App\Support\Pagination;
 use App\Support\Result;
 use App\Support\TextSanitizer;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -466,8 +467,7 @@ class CGJController extends Controller
             });
         }
 
-        $page = (int) $request->input('page', 1);
-        $pageSize = (int) $request->input('pageSize', 20);
+        ['page' => $page, 'size' => $pageSize] = Pagination::resolve($request->all());
 
         $paginator = $query->orderBy('start_date')->paginate($pageSize, ['*'], 'page', $page);
 
@@ -700,8 +700,7 @@ class CGJController extends Controller
             return Result::error(ResponseCode::UNAUTHORIZED);
         }
 
-        $page = (int) $request->input('page', 1);
-        $pageSize = (int) $request->input('pageSize', 20);
+        ['page' => $page, 'size' => $pageSize] = Pagination::resolve($request->all());
 
         $paginator = Donation::where('user_id', $user->id)
             ->orderBy('created_at', 'desc')
