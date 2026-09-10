@@ -11,8 +11,7 @@ use App\Models\Base;
 use App\Models\Donation;
 use App\Models\DonationProject;
 use App\Models\Event;
-use App\Models\EventSchedule;
-use App\Services\AuthService;
+use App\Services\CGJService;
 use App\Support\JWT;
 use App\Support\Pagination;
 use App\Support\Result;
@@ -29,7 +28,7 @@ use Illuminate\Support\Str;
 class CGJController extends Controller
 {
     public function __construct(
-        protected AuthService $authService
+        protected CGJService $authService
     ) {}
 
     // ==================== 认证模块 ====================
