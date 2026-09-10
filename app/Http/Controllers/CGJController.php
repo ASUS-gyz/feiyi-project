@@ -11,7 +11,6 @@ use App\Models\Base;
 use App\Models\Donation;
 use App\Models\DonationProject;
 use App\Models\Event;
-use App\Models\EventSchedule;
 use App\Services\AuthService;
 use App\Support\JWT;
 use App\Support\Pagination;
