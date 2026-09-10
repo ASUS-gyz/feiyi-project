@@ -438,7 +438,7 @@ class WLJService
     {
         ['page' => $page, 'size' => $pageSize] = Pagination::resolve($params, 10);
 
-        $query = Masterpiece::active();
+        $query = Masterpiece::active()->with('author:id,nickname');
 
         if (!empty($params['period'])) {
             $query->where('period', $params['period']);
@@ -485,7 +485,7 @@ class WLJService
      */
     public function masterpieceDetail(int $id, ?int $userId = null): array
     {
-        $masterpiece = Masterpiece::active()->with(['steps' => function ($q) {
+        $masterpiece = Masterpiece::active()->with(['author:id,nickname', 'steps' => function ($q) {
             $q->active()->orderBy('sort_order');
         }])->find($id);
 
@@ -921,16 +921,18 @@ class WLJService
     private function formatMasterpieceList(Masterpiece $masterpiece, bool $isLiked, bool $isFavorited): array
     {
         return [
-            'id'          => $masterpiece->id,
-            'name'        => $masterpiece->name,
-            'period'      => $masterpiece->period,
-            'school'      => $masterpiece->school,
-            'coverImage'  => $masterpiece->cover_image,
-            'likeCount'   => $masterpiece->like_count,
-            'viewCount'   => $masterpiece->view_count,
-            'isLiked'     => $isLiked,
-            'isFavorited' => $isFavorited,
-            'createdAt'   => $masterpiece->created_at?->format('Y-m-d'),
+            'id'             => $masterpiece->id,
+            'name'           => $masterpiece->name,
+            'period'         => $masterpiece->period,
+            'school'         => $masterpiece->school,
+            'authorId'       => $masterpiece->user_id,
+            'authorNickname' => $masterpiece->author?->nickname,
+            'coverImage'     => $masterpiece->cover_image,
+            'likeCount'      => $masterpiece->like_count,
+            'viewCount'      => $masterpiece->view_count,
+            'isLiked'        => $isLiked,
+            'isFavorited'    => $isFavorited,
+            'createdAt'      => $masterpiece->created_at?->format('Y-m-d'),
         ];
     }
 
@@ -940,33 +942,35 @@ class WLJService
     private function formatMasterpieceDetail(Masterpiece $masterpiece, bool $isLiked, bool $isFavorited): array
     {
         return [
-            'id'          => $masterpiece->id,
-            'name'        => $masterpiece->name,
-            'period'      => $masterpiece->period,
-            'school'      => $masterpiece->school,
-            'icon'        => $masterpiece->icon,
-            'description' => $masterpiece->description,
-            'timeMaking'  => $masterpiece->time_making,
-            'foilUsed'    => $masterpiece->foil_used,
-            'difficulty'  => $masterpiece->difficulty,
-            'background'  => $masterpiece->background,
-            'technique'   => $masterpiece->technique,
-            'story'       => $masterpiece->story,
-            'value'       => $masterpiece->value,
-            'coverImage'  => $masterpiece->cover_image,
-            'images'      => $masterpiece->images ?? [],
-            'likeCount'   => $masterpiece->like_count,
-            'viewCount'   => $masterpiece->view_count,
-            'isLiked'     => $isLiked,
-            'isFavorited' => $isFavorited,
-            'steps'       => $masterpiece->steps->map(function ($step) {
+            'id'             => $masterpiece->id,
+            'name'           => $masterpiece->name,
+            'period'         => $masterpiece->period,
+            'school'         => $masterpiece->school,
+            'authorId'       => $masterpiece->user_id,
+            'authorNickname' => $masterpiece->author?->nickname,
+            'icon'           => $masterpiece->icon,
+            'description'    => $masterpiece->description,
+            'timeMaking'     => $masterpiece->time_making,
+            'foilUsed'       => $masterpiece->foil_used,
+            'difficulty'     => $masterpiece->difficulty,
+            'background'     => $masterpiece->background,
+            'technique'      => $masterpiece->technique,
+            'story'          => $masterpiece->story,
+            'value'          => $masterpiece->value,
+            'coverImage'     => $masterpiece->cover_image,
+            'images'         => $masterpiece->images ?? [],
+            'likeCount'      => $masterpiece->like_count,
+            'viewCount'      => $masterpiece->view_count,
+            'isLiked'        => $isLiked,
+            'isFavorited'    => $isFavorited,
+            'steps'          => $masterpiece->steps->map(function ($step) {
                 return [
                     'name'        => $step->name,
                     'description' => $step->description,
                     'difficulty'  => $step->difficulty ? str_repeat('★', $step->difficulty) : '',
                 ];
             })->values()->all(),
-            'createdAt'   => $masterpiece->created_at?->format('Y-m-d'),
+            'createdAt'      => $masterpiece->created_at?->format('Y-m-d'),
         ];
     }
 

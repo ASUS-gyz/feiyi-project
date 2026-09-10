@@ -3,11 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Masterpiece extends Model
 {
     protected $fillable = [
+        'user_id',
         'name',
         'period',
         'school',
@@ -47,6 +49,14 @@ class Masterpiece extends Model
     public function scopeActive($query)
     {
         return $query->where('is_deleted', false);
+    }
+
+    /**
+     * 归属作者（可空：NULL 为无主策展名作）
+     */
+    public function author(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     /**
