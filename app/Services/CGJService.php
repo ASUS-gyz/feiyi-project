@@ -8,7 +8,7 @@ use App\Models\User;
 use App\Support\JWT;
 use Illuminate\Support\Facades\Hash;
 
-class AuthService
+class CGJService
 {
     /**
      * 用户注册
