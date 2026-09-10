@@ -8,19 +8,14 @@ use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Requests\User\UpdatePasswordRequest;
 use App\Http\Requests\User\UpdateProfileRequest;
 use App\Models\Base;
-use App\Models\Donation;
-use App\Models\DonationProject;
 use App\Models\Event;
 use App\Services\CGJService;
 use App\Support\JWT;
 use App\Support\Pagination;
 use App\Support\Result;
-use App\Support\TextSanitizer;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -591,20 +586,7 @@ class CGJController extends Controller
      */
     public function donationProjects()
     {
-        $projects = DonationProject::active()->orderBy('id')->get();
-
-        return Result::success('获取成功', $projects->map(function ($project) {
-            return [
-                'id' => $project->id,
-                'title' => $project->title,
-                'description' => $project->description,
-                'targetAmount' => (float) $project->target_amount,
-                'currentAmount' => (float) $project->current_amount,
-                'supporterCount' => (int) $project->supporter_count,
-                'image' => $project->image,
-                'status' => $project->status,
-            ];
-        })->values()->toArray());
+        return Result::success('获取成功', $this->authService->listDonationProjects());
     }
 
     /**
@@ -614,75 +596,10 @@ class CGJController extends Controller
      */
     public function createDonation(Request $request)
     {
-        /** @var \App\Models\User|null $user */
-        $user = $request->user();
-
-        if (!$user) {
-            return Result::error(ResponseCode::UNAUTHORIZED);
-        }
-
-        $projectId = $request->input('projectId');
-        $amount = $request->input('amount');
-        $isAnonymous = (bool) $request->input('isAnonymous', false);
-        // 捐赠留言净化（存储型 XSS 写侧防御）
-        $message = TextSanitizer::clean($request->input('message'));
-
-        // 验证参数
-        if (!$projectId) {
-            return Result::error(ResponseCode::PARAM_MISSING, '请选择捐赠项目');
-        }
-
-        if (!$amount || !is_numeric($amount) || $amount < 10) {
-            return Result::error(ResponseCode::PARAM_INVALID, '捐赠金额不能低于 10 元');
-        }
-
-        // 检查项目
-        /** @var DonationProject|null $project */
-        $project = DonationProject::available()->find($projectId);
-
-        if (!$project) {
-            return Result::error(ResponseCode::DATA_NOT_FOUND, '捐赠项目不存在或已关闭');
-        }
-
-        // 金额上限检查（不超过目标金额的 10 倍）
-        if ($amount > $project->target_amount * 10) {
-            return Result::error(ResponseCode::AMOUNT_LIMIT, '单次捐赠金额不能超过项目目标金额的 10 倍');
-        }
-
-        // 生成捐赠编号
-        $donationNo = 'DON' . date('YmdHis') . strtoupper(Str::random(6));
-
-        // 使用事务写入
-        try {
-            DB::transaction(function () use ($user, $project, $donationNo, $amount, $isAnonymous, $message, &$donation) {
-                // 创建捐赠记录
-                $donation = Donation::create([
-                    'donation_no' => $donationNo,
-                    'user_id' => $user->id,
-                    'project_id' => $project->id,
-                    'project_title' => $project->title,
-                    'amount' => $amount,
-                    'is_anonymous' => $isAnonymous,
-                    'message' => $message,
-                    'status' => 'DONATION_COMPLETED',
-                ]);
-
-                // 更新项目计数缓存
-                $project->increment('current_amount', $amount);
-                $project->increment('supporter_count');
-            });
-        } catch (\Exception $e) {
-            return Result::error(ResponseCode::SYSTEM_ERROR, '捐赠处理失败，请稍后重试');
-        }
-
-        /** @var Donation $donation */
-        return Result::success('捐赠成功', [
-            'donationNo' => $donation->donation_no,
-            'amount' => (float) $donation->amount,
-            'status' => $donation->status,
-            'certificateUrl' => $donation->certificate_url,
-            'createdAt' => $donation->created_at->toIso8601String(),
-        ]);
+        return Result::success(
+            '捐赠成功',
+            $this->authService->createDonation($request->user(), $request->only(['projectId', 'amount', 'isAnonymous', 'message']))
+        );
     }
 
     /**
@@ -692,40 +609,9 @@ class CGJController extends Controller
      */
     public function donationRecords(Request $request)
     {
-        /** @var \App\Models\User|null $user */
-        $user = $request->user();
-
-        if (!$user) {
-            return Result::error(ResponseCode::UNAUTHORIZED);
-        }
-
         ['page' => $page, 'size' => $pageSize] = Pagination::resolve($request->all());
 
-        $paginator = Donation::where('user_id', $user->id)
-            ->orderBy('created_at', 'desc')
-            ->paginate($pageSize, ['*'], 'page', $page);
-
-        $list = collect($paginator->items())->map(function ($donation) {
-            /** @var Donation $donation */
-            return [
-                'donationNo' => $donation->donation_no,
-                'projectId' => $donation->project_id,
-                'projectTitle' => $donation->project_title,
-                'amount' => (float) $donation->amount,
-                'isAnonymous' => (bool) $donation->is_anonymous,
-                'message' => $donation->message,
-                'status' => $donation->status,
-                'certificateUrl' => $donation->certificate_url,
-                'createdAt' => $donation->created_at->toIso8601String(),
-            ];
-        });
-
-        return Result::success('获取成功', [
-            'list' => $list->values()->toArray(),
-            'total' => $paginator->total(),
-            'page' => $paginator->currentPage(),
-            'pageSize' => $paginator->perPage(),
-        ]);
+        return Result::success('获取成功', $this->authService->listDonationRecords($request->user(), $page, $pageSize));
     }
 
     /**
@@ -733,61 +619,13 @@ class CGJController extends Controller
      *
      * GET /api/donations/{id}/certificate
      */
-    public function donationCertificate(int $id)
+    public function donationCertificate(Request $request, int $id)
     {
-        /** @var \App\Models\User|null $user */
-        $user = request()->user();
+        $pdf = $this->authService->donationCertificate($request->user(), $id);
 
-        if (!$user) {
-            return Result::error(ResponseCode::UNAUTHORIZED);
-        }
-
-        /** @var Donation|null $donation */
-        $donation = Donation::find($id);
-
-        if (!$donation) {
-            return Result::error(ResponseCode::DATA_NOT_FOUND);
-        }
-
-        // 检查权限：只能下载自己的证书
-        if ($donation->user_id !== $user->id) {
-            return Result::error(ResponseCode::FORBIDDEN);
-        }
-
-        // 生成 PDF 证书
-        $pdfContent = $this->generateDonationCertificatePdf($donation);
-
-        $filename = '捐赠证书_' . $donation->donation_no . '.pdf';
-
-        return response($pdfContent, 200, [
+        return response($pdf['content'], 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Content-Disposition' => 'attachment; filename="' . $pdf['filename'] . '"',
         ]);
-    }
-
-    /**
-     * 生成捐赠证书 PDF
-     *
-     * dompdf 渲染 HTML 模板；dompdf 不自动扫描字体目录，运行时显式登记
-     * 库内中文字体（storage/fonts/simhei.ttf），开启子集化后仅嵌入用到的字形。
-     */
-    private function generateDonationCertificatePdf(Donation $donation): string
-    {
-        $nickname = $donation->is_anonymous ? '匿名爱心人士' : ($donation->user->nickname ?: $donation->user->username);
-
-        $pdf = Pdf::setOption('enable_font_subsetting', true)->loadView('certificates.donation', [
-            'donationNo'   => $donation->donation_no,
-            'nickname'     => $nickname,
-            'amount'       => number_format($donation->amount, 2),
-            'projectTitle' => $donation->project_title,
-            'date'         => $donation->created_at->format('Y年m月d日'),
-        ]);
-
-        $pdf->getDomPDF()->getFontMetrics()->registerFont(
-            ['family' => 'simhei', 'style' => 'normal', 'weight' => 'normal'],
-            storage_path('fonts/simhei.ttf')
-        );
-
-        return $pdf->output();
     }
 }

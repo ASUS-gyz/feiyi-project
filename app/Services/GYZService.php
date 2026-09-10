@@ -1081,22 +1081,28 @@ class GYZService
 
         $messages[] = ['role' => 'user', 'content' => $message];
 
-        $response = Http::timeout(30)
-            ->withToken($apiKey)
-            ->withOptions(['verify' => storage_path('cacert.pem')])
-            ->post($apiUrl, [
-                'model'       => $model,
-                'messages'    => $messages,
-                'max_tokens'  => $maxTokens,
-                'temperature' => $temperature,
-            ]);
+        try {
+            $response = Http::timeout(30)
+                ->withToken($apiKey)
+                ->withOptions(['verify' => storage_path('cacert.pem')])
+                ->post($apiUrl, [
+                    'model'       => $model,
+                    'messages'    => $messages,
+                    'max_tokens'  => $maxTokens,
+                    'temperature' => $temperature,
+                ]);
+        } catch (\Throwable $e) {
+            // 连接失败/超时：按文档约定转统一信封 50008，不裸 500
+            Log::channel('exception')->error('DeepSeek API 连接异常', ['error' => $e->getMessage()]);
+            throw new BusinessException(ResponseCode::THIRD_PARTY_TIMEOUT, 'AI 服务暂时不可用，请稍后重试');
+        }
 
         if ($response->failed()) {
             Log::channel('exception')->error('DeepSeek API 错误', [
                 'status' => $response->status(),
                 'body'   => $response->body(),
             ]);
-            throw new \RuntimeException('AI 服务返回错误: ' . $response->status());
+            throw new BusinessException(ResponseCode::THIRD_PARTY_TIMEOUT, 'AI 服务暂时不可用，请稍后重试');
         }
 
         // AI 回复属不可信第三方内容，入库与返回前净化（存储型 XSS 写侧防御）
