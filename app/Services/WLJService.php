@@ -525,6 +525,23 @@ class WLJService
                 MasterpieceLike::create(['user_id' => $user->id, 'masterpiece_id' => $id]);
                 $masterpiece->increment('like_count');
 
+                // 通知作品归属作者（无归属或自我点赞不通知；同作品同事件去重，
+                // 与评论被赞约定一致，避免点赞/取消反复操作堆积通知）
+                if ($masterpiece->user_id
+                    && (int) $masterpiece->user_id !== $user->id
+                    && ! Notification::where('user_id', $masterpiece->user_id)
+                        ->where('type', 'NOTIFY_LIKE')
+                        ->where('related_id', $id)
+                        ->exists()) {
+                    Notification::create([
+                        'user_id'    => $masterpiece->user_id,
+                        'type'       => 'NOTIFY_LIKE',
+                        'title'      => '作品收到新点赞',
+                        'message'    => "你的作品《{$masterpiece->name}》收到了新的点赞",
+                        'related_id' => $id,
+                    ]);
+                }
+
                 return (int) $masterpiece->fresh()->like_count;
             });
         } catch (UniqueConstraintViolationException) {
