@@ -25,3 +25,11 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# dompdf 字体注册运行时产物（哈希副本、指标缓存、登记表；生成证书时再生）
+/storage/fonts/installed-fonts.json
+/storage/fonts/Helvetica.afm.json
+/storage/fonts/*_normal_*
+
+# Claude Code 个人本地配置（项目级 settings.json 入库，个人覆盖不入）
+/.claude/settings.local.json
