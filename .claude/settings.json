@@ -4,7 +4,15 @@
       "Bash(curl -s http://localhost:8000/api/shop/categories)",
       "Bash(curl -s http://localhost:8000/api/games)",
       "Bash(python3 -m json.tool)",
-      "Bash(php c:/tmp/scan_unused_imports.php)"
+      "Bash(php c:/tmp/scan_unused_imports.php)",
+      "Bash(gh issue *)",
+      "Bash(grep -o \"'[A-Z_]\\\\{3,\\\\}'\")",
+      "Bash(sed -i 's/::withTrashed\\(\\)->get\\(\\)/::query\\(\\)->get\\(\\)/g; s/App\\\\\\\\Models\\\\\\\\Post::withTrashed\\(\\)/App\\\\\\\\Models\\\\\\\\Post::query\\(\\)/g; s/App\\\\\\\\Models\\\\\\\\Comment::withTrashed\\(\\)/App\\\\\\\\Models\\\\\\\\Comment::query\\(\\)/g; s/App\\\\\\\\Models\\\\\\\\Masterpiece::withTrashed\\(\\)/App\\\\\\\\Models\\\\\\\\Masterpiece::query\\(\\)/g; s/App\\\\\\\\Models\\\\\\\\Cooperation::withTrashed\\(\\)/App\\\\\\\\Models\\\\\\\\Cooperation::query\\(\\)/g; s/App\\\\\\\\Models\\\\\\\\DonationProject::withTrashed\\(\\)/App\\\\\\\\Models\\\\\\\\DonationProject::query\\(\\)/g' c:/tmp/fill_feiyi_data.php)",
+      "Bash(sed -i 's/'\\\\''parent_id'\\\\'' => $i === 5 ? App\\\\\\\\Models\\\\\\\\Comment::where\\('\\\\''post_id'\\\\'', $post->id\\)->first\\(\\)->id : null,/'\\\\''parent_id'\\\\'' => \\($i === 5 ? App\\\\\\\\Models\\\\\\\\Comment::where\\('\\\\''post_id'\\\\'', $post->id\\)->whereNull\\('\\\\''parent_id'\\\\''\\)->first\\(\\)?->id : null\\),/' c:/tmp/fill_feiyi_data.php)",
+      "Bash(grep -rn \"use App\\\\\\\\\\\\\\\\Support\\\\\\\\\\\\\\\\TextSanitizer\\\\|use Barryvdh\\\\|use App\\\\\\\\\\\\\\\\Models\\\\\\\\\\\\\\\\Donation\\\\|use Illuminate\\\\\\\\\\\\\\\\Support\\\\\\\\\\\\\\\\Facades\\\\\\\\\\\\\\\\DB\" app/Http/Controllers/CGJController.php)",
+      "Bash(python -)",
+      "Bash(php -l app/Http/Controllers/CGJController.php)",
+      "Bash(php -r '$j=json_decode\\(stream_get_contents\\(STDIN\\),true\\); echo \"code={$j[\"code\"]} title={$j[\"data\"][\"title\"]} schedules=\".count\\($j[\"data\"][\"schedule\"]\\).\" first=\".\\(\\($j[\"data\"][\"schedule\"][0][\"date\"]??\"\"\\).\"|\".\\($j[\"data\"][\"schedule\"][0][\"event\"]??\"\"\\)\\).\"\\\\n\";')"
     ]
   }
 }
