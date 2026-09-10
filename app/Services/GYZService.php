@@ -24,6 +24,12 @@ use Illuminate\Support\Str;
 
 class GYZService
 {
+    /**
+     * 发往大模型的历史窗口（轮数）：仅最近 N 轮用户/AI 消息进入上下文，
+     * 完整历史仍全量落库与会话读回，窗口只约束发往 AI 的那一刀。
+     */
+    private const AI_HISTORY_ROUNDS = 10;
+
     // ==================================================================
     //  文创商城
     // ==================================================================
@@ -999,12 +1005,14 @@ class GYZService
             $session->update(['last_message' => Str::limit($message, 100), 'updated_at' => now()]);
         }
 
-        // 获取历史消息
+        // 获取历史消息（仅取最近窗口轮数发往 AI，完整历史仍全量落库）
         $history = ChatMessage::active()
             ->where('session_id', $sessionId)
             ->orderBy('created_at')
             ->get(['role', 'content'])
             ->toArray();
+
+        $history = array_slice($history, -self::AI_HISTORY_ROUNDS * 2);
 
         // 保存用户消息
         ChatMessage::create([
