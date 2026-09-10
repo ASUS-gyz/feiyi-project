@@ -4,12 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Requests\CGJRequest;
 use App\Http\Requests\User\UpdatePasswordRequest;
 use App\Http\Requests\User\UpdateProfileRequest;
 use App\Services\CGJService;
 use App\Support\Pagination;
 use App\Support\Result;
-use Illuminate\Http\Request;
 
 class CGJController extends Controller
 {
@@ -103,7 +103,7 @@ class CGJController extends Controller
      *
      * POST /api/upload/avatar
      */
-    public function uploadAvatar(Request $request)
+    public function uploadAvatar(CGJRequest $request)
     {
         return Result::success('上传成功', $this->authService->uploadAvatar($request->user(), $request->file('file')));
     }
@@ -113,7 +113,7 @@ class CGJController extends Controller
      *
      * POST /api/upload/post-image
      */
-    public function uploadPostImage(Request $request)
+    public function uploadPostImage(CGJRequest $request)
     {
         return Result::success(
             '上传成功',
@@ -128,9 +128,12 @@ class CGJController extends Controller
      *
      * GET /api/bases
      */
-    public function baseList(Request $request)
+    public function baseList(CGJRequest $request)
     {
-        return Result::success('获取成功', $this->authService->listBases($request->input('status'), $request->input('region')));
+        return Result::success('获取成功', $this->authService->listBases(
+            $request->validated('status'),
+            $request->validated('region')
+        ));
     }
 
     /**
@@ -148,12 +151,12 @@ class CGJController extends Controller
      *
      * GET /api/bases/nearby
      */
-    public function baseNearby(Request $request)
+    public function baseNearby(CGJRequest $request)
     {
         return Result::success('获取成功', $this->authService->listNearbyBases(
-            $request->input('latitude') !== null ? (float) $request->input('latitude') : null,
-            $request->input('longitude') !== null ? (float) $request->input('longitude') : null,
-            (float) ($request->input('radius', 50))
+            (float) $request->validated('latitude'),
+            (float) $request->validated('longitude'),
+            (float) $request->validated('radius', 50)
         ));
     }
 
@@ -164,13 +167,13 @@ class CGJController extends Controller
      *
      * GET /api/events
      */
-    public function eventList(Request $request)
+    public function eventList(CGJRequest $request)
     {
         ['page' => $page, 'size' => $pageSize] = Pagination::resolve($request->all());
 
         return Result::success('获取成功', $this->authService->listEvents(
-            $request->input('status'),
-            $request->input('month'),
+            $request->validated('status'),
+            $request->validated('month'),
             $page,
             $pageSize
         ));
@@ -218,11 +221,11 @@ class CGJController extends Controller
      *
      * POST /api/donations
      */
-    public function createDonation(Request $request)
+    public function createDonation(CGJRequest $request)
     {
         return Result::success(
             '捐赠成功',
-            $this->authService->createDonation($request->user(), $request->only(['projectId', 'amount', 'isAnonymous', 'message']))
+            $this->authService->createDonation($request->user(), $request->validated())
         );
     }
 
@@ -231,7 +234,7 @@ class CGJController extends Controller
      *
      * GET /api/donations/records
      */
-    public function donationRecords(Request $request)
+    public function donationRecords(CGJRequest $request)
     {
         ['page' => $page, 'size' => $pageSize] = Pagination::resolve($request->all());
 
@@ -243,7 +246,7 @@ class CGJController extends Controller
      *
      * GET /api/donations/{id}/certificate
      */
-    public function donationCertificate(Request $request, int $id)
+    public function donationCertificate(CGJRequest $request, int $id)
     {
         $pdf = $this->authService->donationCertificate($request->user(), $id);
 

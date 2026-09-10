@@ -10,7 +10,6 @@ use App\Models\DonationProject;
 use App\Models\Event;
 use App\Models\User;
 use App\Support\JWT;
-use App\Support\TextSanitizer;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -135,16 +134,9 @@ class CGJService
      */
     public function createDonation(User $user, array $input): array
     {
+        // 结构性参数校验（必填/数值/下限）已归位 CGJRequest，此处只做业务规则
         $projectId = $input['projectId'] ?? null;
-        $amount = $input['amount'] ?? null;
-
-        if (!$projectId) {
-            throw new BusinessException(ResponseCode::PARAM_MISSING, '请选择捐赠项目');
-        }
-
-        if (!$amount || !is_numeric($amount) || $amount < 10) {
-            throw new BusinessException(ResponseCode::PARAM_INVALID, '捐赠金额不能低于 10 元');
-        }
+        $amount = (float) ($input['amount'] ?? 0);
 
         /** @var DonationProject|null $project */
         $project = DonationProject::available()->find($projectId);
@@ -158,9 +150,9 @@ class CGJService
             throw new BusinessException(ResponseCode::AMOUNT_LIMIT, '单次捐赠金额不能超过项目目标金额的 10 倍');
         }
 
-        // 生成捐赠编号；捐赠留言净化（存储型 XSS 写侧防御）
+        // 生成捐赠编号；留言已在 CGJRequest 验证前净化
         $donationNo = 'DON' . date('YmdHis') . strtoupper(Str::random(6));
-        $message = TextSanitizer::clean($input['message'] ?? null);
+        $message = $input['message'] ?? null;
         $isAnonymous = (bool) ($input['isAnonymous'] ?? false);
 
         try {
@@ -529,14 +521,10 @@ class CGJService
     /**
      * 获取附近基地（Haversine 公式计算距离）
      *
-     * @throws BusinessException
+     * 经纬度必填与取值范围校验已归位 CGJRequest
      */
-    public function listNearbyBases(?float $latitude, ?float $longitude, float $radius): array
+    public function listNearbyBases(float $latitude, float $longitude, float $radius = 50): array
     {
-        if (!$latitude || !$longitude) {
-            throw new BusinessException(ResponseCode::PARAM_MISSING, '请提供经纬度参数');
-        }
-
         $haversine = "(6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude))))";
 
         $bases = Base::active()
