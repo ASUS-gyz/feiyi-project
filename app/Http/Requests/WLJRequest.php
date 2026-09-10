@@ -46,8 +46,6 @@ class WLJRequest extends FormRequest
         return match ($action) {
             // === 互动帖子 ===
             'posts.list' => [
-                'page'      => 'integer|min:1',
-                'pageSize'  => 'integer|min:1|max:100',
                 'category'  => 'string|in:GAME,QA,DONATION,COLLAB,OTHER',
                 'keyword'   => 'string|max:100',
                 'sortBy'    => 'string|in:createdAt,likeCount,commentCount,viewCount',
@@ -72,8 +70,6 @@ class WLJRequest extends FormRequest
             'comments.list' => [
                 'postId'   => 'integer|min:1',
                 'parentId' => 'integer|min:0',
-                'page'     => 'integer|min:1',
-                'pageSize' => 'integer|min:1|max:100',
             ],
             'comments.create' => [
                 'content'  => 'required|string|min:1|max:2000',
@@ -86,8 +82,6 @@ class WLJRequest extends FormRequest
 
             // === 传世名作 ===
             'masterpieces.list' => [
-                'page'     => 'integer|min:1',
-                'pageSize' => 'integer|min:1|max:100',
                 'period'   => 'string|in:QING,MING,CONTEMPORARY',
                 'school'   => 'string|in:SUZHOU,CHAOSHAN,LITERATI',
                 'keyword'  => 'string|max:100',
@@ -97,8 +91,6 @@ class WLJRequest extends FormRequest
 
             // === 收藏夹 ===
             'favorites.list' => [
-                'page'       => 'integer|min:1',
-                'pageSize'   => 'integer|min:1|max:100',
                 'targetType' => 'string|in:POST,MASTERPIECE,ARTICLE',
             ],
             'favorites.check' => [
@@ -112,8 +104,6 @@ class WLJRequest extends FormRequest
 
             // === 共创计划 ===
             'cooperations.list' => [
-                'page'     => 'integer|min:1',
-                'pageSize' => 'integer|min:1|max:100',
                 'status'   => 'string|in:COOP_COLLECTING,COOP_REVIEWING,COOP_PRODUCING,COOP_COMPLETED',
             ],
             'cooperations.submit' => [
@@ -124,8 +114,6 @@ class WLJRequest extends FormRequest
                 'authorName'  => 'nullable|string|max:50',
             ],
             'cooperations.mySubmissions' => [
-                'page'     => 'integer|min:1',
-                'pageSize' => 'integer|min:1|max:100',
             ],
 
             default => [],
@@ -163,6 +151,15 @@ class WLJRequest extends FormRequest
             $mapped = [];
             foreach ($validated as $k => $v) {
                 $mapped[Str::snake($k)] = $v;
+            }
+
+            // 分页参数不再逐路由校验：原样并入 validated 数据（规则删除后
+            // validated 不再携带它们），由服务层的分页解析器统一钳制
+            // 并应用端点默认值（默认值差异在此处不可知，不能在此钳制）
+            foreach (['page', 'pageSize', 'page_size'] as $paginationKey) {
+                if (($paginationValue = $this->input($paginationKey)) !== null) {
+                    $mapped[Str::snake($paginationKey)] = $paginationValue;
+                }
             }
 
             return $mapped;

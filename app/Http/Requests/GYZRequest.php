@@ -59,8 +59,6 @@ class GYZRequest extends FormRequest
         return match ($action) {
             // === 文创商城 ===
             'shop.products' => [
-                'page'      => 'nullable|integer|min:1',
-                'pageSize'  => 'nullable|integer|min:1|max:100',
                 'categoryId'=> 'nullable|integer|exists:shop_categories,id',
                 'keyword'   => 'nullable|string|max:200',
                 'minPrice'  => 'nullable|numeric|min:0',
@@ -78,15 +76,11 @@ class GYZRequest extends FormRequest
                 'remark'      => 'nullable|string|max:500',
             ],
             'shop.orders.my' => [
-                'page'     => 'nullable|integer|min:1',
-                'pageSize' => 'nullable|integer|min:1|max:100',
                 'status'   => 'nullable|string|in:ORDER_PENDING,ORDER_PAID,ORDER_SHIPPED,ORDER_COMPLETED,ORDER_CANCELLED',
             ],
 
             // === 消息通知 ===
             'notifications.list' => [
-                'page'     => 'nullable|integer|min:1',
-                'pageSize' => 'nullable|integer|min:1|max:100',
                 'isRead'   => 'nullable|boolean',
                 'type'     => 'nullable|string|in:NOTIFY_COMMENT_REPLY,NOTIFY_LIKE,NOTIFY_SYSTEM,NOTIFY_NEWS',
             ],
@@ -113,8 +107,6 @@ class GYZRequest extends FormRequest
                 'metadata'  => 'nullable|array',
             ],
             'games.scores.my' => [
-                'page'     => 'nullable|integer|min:1',
-                'pageSize' => 'nullable|integer|min:1|max:100',
                 'gameType' => 'nullable|string|in:GAME_DRAWING,GAME_FIRE,GAME_COLORING',
                 'levelId'  => 'nullable|integer|min:1',
             ],
@@ -122,8 +114,6 @@ class GYZRequest extends FormRequest
                 'levelId'    => 'nullable|integer|min:1',
                 'difficulty' => 'nullable|string|in:DIFFICULTY_EASY,DIFFICULTY_MEDIUM,DIFFICULTY_HARD',
                 'period'     => 'nullable|string|in:all,month,week',
-                'page'       => 'nullable|integer|min:1',
-                'pageSize'   => 'nullable|integer|min:1|max:100',
             ],
             'games.scores.best' => [],
             'games.certificate' => [],
@@ -136,8 +126,6 @@ class GYZRequest extends FormRequest
                 'temperature' => 'nullable|numeric|min:0.1|max:1.5',
             ],
             'chat.sessions' => [
-                'page'     => 'nullable|integer|min:1',
-                'pageSize' => 'nullable|integer|min:1|max:100',
             ],
             'chat.messages' => [],
             'chat.deleteSession' => [],
@@ -219,6 +207,16 @@ class GYZRequest extends FormRequest
             foreach ($validated as $k => $v) {
                 $mapped[Str::snake($k)] = $v;
             }
+
+            // 分页参数不再逐路由校验：原样并入 validated 数据（规则删除后
+            // validated 不再携带它们），由服务层的分页解析器统一钳制
+            // 并应用端点默认值（默认值差异在此处不可知，不能在此钳制）
+            foreach (['page', 'pageSize', 'page_size'] as $paginationKey) {
+                if (($paginationValue = $this->input($paginationKey)) !== null) {
+                    $mapped[Str::snake($paginationKey)] = $paginationValue;
+                }
+            }
+
             return $mapped;
         }
 
