@@ -18,6 +18,7 @@ use App\Models\User;
 use App\Support\Pagination;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class WLJService
 {
@@ -108,6 +109,12 @@ class WLJService
 
         $post->load('author');
 
+        Log::channel('business')->info('帖子发布', [
+            'user_id'  => $user->id,
+            'post_id'  => $post->id,
+            'category' => $post->category,
+        ]);
+
         return $this->formatPost($post, false, false);
     }
 
@@ -166,6 +173,12 @@ class WLJService
         $post->is_deleted = true;
         $post->deleted_at = now();
         $post->save();
+
+        Log::channel('business')->info('帖子删除', [
+            'user_id'  => $user->id,
+            'post_id'  => $post->id,
+            'is_admin' => $post->user_id !== $user->id,
+        ]);
     }
 
     // ==================================================================
@@ -283,6 +296,13 @@ class WLJService
 
         $comment->load('user');
 
+        Log::channel('business')->info('评论发布', [
+            'user_id'    => $user->id,
+            'comment_id' => $comment->id,
+            'post_id'    => $postId,
+            'parent_id'  => $parentId,
+        ]);
+
         return $this->formatComment($comment, false);
     }
 
@@ -350,6 +370,13 @@ class WLJService
                 Comment::where('id', $comment->parent_id)->where('reply_count', '>', 0)->decrement('reply_count');
             }
         });
+
+        Log::channel('business')->info('评论删除', [
+            'user_id'    => $user->id,
+            'comment_id' => $comment->id,
+            'post_id'    => $comment->post_id,
+            'is_admin'   => $comment->user_id !== $user->id,
+        ]);
     }
 
     /**
@@ -667,6 +694,13 @@ class WLJService
             'target_type' => $targetType,
         ]);
 
+        Log::channel('business')->info('添加收藏', [
+            'user_id'     => $user->id,
+            'favorite_id' => $favorite->id,
+            'target_type' => $favorite->target_type,
+            'target_id'   => $favorite->target_id,
+        ]);
+
         return [
             'id'         => $favorite->id,
             'targetId'   => $favorite->target_id,
@@ -810,6 +844,12 @@ class WLJService
         ]);
 
         $cooperation->increment('submission_count');
+
+        Log::channel('business')->info('共创投稿提交', [
+            'user_id'        => $user->id,
+            'submission_id'  => $submission->id,
+            'cooperation_id' => $cooperation->id,
+        ]);
 
         return [
             'submissionId' => $submission->id,

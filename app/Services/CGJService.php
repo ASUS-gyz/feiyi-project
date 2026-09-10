@@ -188,6 +188,13 @@ class CGJService
         }
 
         /** @var Donation $donation */
+        Log::channel('business')->info('捐赠成功', [
+            'user_id'     => $user->id,
+            'donation_no' => $donation->donation_no,
+            'project_id'  => $project->id,
+            'amount'      => $amount,
+        ]);
+
         return [
             'donationNo' => $donation->donation_no,
             'amount' => (float) $donation->amount,
@@ -528,7 +535,11 @@ class CGJService
         $haversine = "(6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude))))";
 
         $bases = Base::active()
-            ->select('*')
+            // 字段最小化（手册：API 接口禁止 select *），覆盖 formatBase 所需列 + 距离
+            ->select([
+                'id', 'name', 'location', 'latitude', 'longitude',
+                'status', 'booking_type', 'booking_value', 'courses', 'images',
+            ])
             ->selectRaw("{$haversine} AS distance", [$latitude, $longitude, $latitude])
             ->having('distance', '<=', $radius)
             ->orderBy('distance')
