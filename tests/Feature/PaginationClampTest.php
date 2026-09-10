@@ -110,11 +110,31 @@ class PaginationClampTest extends TestCase
     }
 
     /**
-     * 本票边界：表单请求类端点的分页规则未动，非法参数仍 10001（语义翻转在下一票）
+     * 表单请求类端点翻转为钳制语义：page=0 回落 1，超大 pageSize 裁 100
      */
-    public function test_form_request_endpoints_still_reject_invalid_pagination(): void
+    public function test_form_request_endpoints_clamp_instead_of_reject(): void
     {
-        $response = $this->getJson('/api/posts?page=0');
-        $this->assertErrorEnvelope($response, ResponseCode::PARAM_ERROR->value);
+        $page = $this->getJson('/api/posts?page=0');
+        $this->assertSuccessEnvelope($page);
+        $this->assertSame(1, $page->json('data.page'), 'page<1 应回落 1 而非 10001');
+
+        $size = $this->getJson('/api/posts?pageSize=5000');
+        $this->assertSuccessEnvelope($size);
+        $this->assertSame(100, $size->json('data.pageSize'), '超大 pageSize 应回落到上限 100');
+    }
+
+    /**
+     * 表单请求类端点非数字分页参数回落默认值；其余业务规则不受影响
+     */
+    public function test_form_request_non_numeric_pagination_falls_back_and_business_rules_intact(): void
+    {
+        $fallback = $this->getJson('/api/posts?page=abc&pageSize=xyz');
+        $this->assertSuccessEnvelope($fallback);
+        $this->assertSame(1, $fallback->json('data.page'));
+        $this->assertSame(20, $fallback->json('data.pageSize'));
+
+        // 业务校验规则仍生效：非法分类值依旧 10001
+        $bogus = $this->getJson('/api/posts?category=BOGUS');
+        $this->assertErrorEnvelope($bogus, ResponseCode::PARAM_ERROR->value);
     }
 }
