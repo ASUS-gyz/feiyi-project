@@ -15,6 +15,7 @@ use App\Models\Notification;
 use App\Models\Post;
 use App\Models\PostLike;
 use App\Models\User;
+use App\Support\Pagination;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
@@ -29,8 +30,7 @@ class WLJService
      */
     public function listPosts(array $params, ?int $userId = null): array
     {
-        $page     = (int) ($params['page'] ?? 1);
-        $pageSize = min((int) ($params['page_size'] ?? 20), 100);
+        ['page' => $page, 'size' => $pageSize] = Pagination::resolve($params);
 
         $query = Post::active()->with('author');
 
@@ -199,8 +199,7 @@ class WLJService
      */
     public function listAllComments(array $params): array
     {
-        $page     = (int) ($params['page'] ?? 1);
-        $pageSize = min((int) ($params['page_size'] ?? 20), 100);
+        ['page' => $page, 'size' => $pageSize] = Pagination::resolve($params);
 
         $query = Comment::active()->with('user');
 
@@ -437,8 +436,7 @@ class WLJService
      */
     public function listMasterpieces(array $params, ?int $userId = null): array
     {
-        $page     = (int) ($params['page'] ?? 1);
-        $pageSize = min((int) ($params['page_size'] ?? 10), 100);
+        ['page' => $page, 'size' => $pageSize] = Pagination::resolve($params, 10);
 
         $query = Masterpiece::active();
 
@@ -572,8 +570,7 @@ class WLJService
      */
     public function listFavorites(User $user, array $params): array
     {
-        $page     = (int) ($params['page'] ?? 1);
-        $pageSize = min((int) ($params['page_size'] ?? 20), 100);
+        ['page' => $page, 'size' => $pageSize] = Pagination::resolve($params);
 
         $query = Favorite::where('user_id', $user->id)->orderBy('created_at', 'desc');
 
@@ -718,8 +715,7 @@ class WLJService
      */
     public function listCooperations(array $params): array
     {
-        $page     = (int) ($params['page'] ?? 1);
-        $pageSize = min((int) ($params['page_size'] ?? 20), 100);
+        ['page' => $page, 'size' => $pageSize] = Pagination::resolve($params);
 
         $query = Cooperation::active();
 
@@ -812,8 +808,7 @@ class WLJService
      */
     public function mySubmissions(User $user, array $params): array
     {
-        $page     = (int) ($params['page'] ?? 1);
-        $pageSize = min((int) ($params['page_size'] ?? 20), 100);
+        ['page' => $page, 'size' => $pageSize] = Pagination::resolve($params);
 
         $paginator = CooperationSubmission::active()
             ->where('user_id', $user->id)
